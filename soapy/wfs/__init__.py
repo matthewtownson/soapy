@@ -8,6 +8,7 @@ from . import shackhartmann, gradient, pyramid
 from .shackhartmann import ShackHartmann
 from .gradient import Gradient
 from .pyramid import Pyramid
-from .extendedshackhartmann import ExtendedSH
+# from .extendedshackhartmann import ExtendedSH
+from .isoplanaticshackhartmann import ExtendedSH
 from .shackhartmann_legacy import ShackHartmannLegacy
 from .zernike import Zernike
