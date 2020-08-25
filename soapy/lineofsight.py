@@ -482,3 +482,67 @@ def physical_atmosphere_propagation(
         # logger.debug("Propagation: {}, {} m. Total: {}".format(i, z, z_total))
 
     return EFieldBuf
+
+
+class ExtendedLineOfSight(LineOfSight):
+    """
+        A number of "Line of sight" through a number of turbulence layers in the atmosphere, observing a series of given
+        directions for creating extended objects.
+
+        Parameters:
+            config: The soapy config for the line of sight
+            simConfig: The soapy simulation config object
+            propagation_direction (str, optional): Direction of light propagation, either `"up"` or `"down"`
+            outPxlScale (float, optional): The EField pixel scale required at the output (m/pxl)
+            nOutPxls (int, optional): Number of pixels to return in EFIeld
+            mask (ndarray, optional): Mask to apply at the *beginning* of propagation
+            metaPupilPos (list, dict, optional): A list or dictionary of the meta pupil position at each turbulence
+                                                 layer height ub metres. If None, works it out from GS position.
+        """
+    def __init__(self, config, soapyConfig, propagation_direction="down", out_pixel_scale=None, nx_out_pixels=None,
+                 mask=None, metaPupilPos=None):
+        super().__init__(config, soapyConfig, propagation_direction=propagation_direction,
+                         out_pixel_scale=out_pixel_scale, nx_out_pixels=nx_out_pixels, mask=mask,
+                         metaPupilPos=metaPupilPos)
+
+        self.lines_of_sight = self.create_sub_los()
+
+    def create_sub_los(self):
+        """
+        Create the sub-lines of sight. An individual LOS is generated for each field direction in the
+        self.config.GSPositions array.
+        """
+        # TODO: Fill this in!
+        lines_of_sight_list = []
+        for x in range(self.config.GSSamples):
+            for y in range(self.config.GSSamples):
+                lines_of_sight_list.append("%02d_x_%02d_y" % (x, y))
+
+        lines_of_sight_dictionary = {}
+        for name in lines_of_sight_list:
+            new_config = self.config
+            new_config.GSPosition = [0., 0.]
+
+            lines_of_sight_dictionary[name] = LineOfSight(new_config, self.soapy_config,
+                                                       propagation_direction=self.propagation_direction,
+                                                       out_pixel_scale=self.out_pixel_scale,
+                                                       nx_out_pixels=self.nx_out_pixels, mask=self.mask,
+                                                       metaPupilPos=self.metaPupilPos)
+
+        return lines_of_sight_dictionary
+
+    @property
+    def positions(self):
+        try:
+            return self.config.positions
+        except AttributeError:
+            return self.config.GSPositions
+
+    @positions.setter
+    def positions(self, positions):
+        try:
+            self.config.positions
+            self.config.positions = positions
+        except AttributeError:
+            self.config.GSPositions
+            self.config.GSPositions = positions

@@ -5,6 +5,7 @@ A Shack Hartmann WFS for use with extended reference sources, such as solar AO, 
 
 import numpy
 import scipy.signal
+import pyfftw
 
 try:
     from astropy.io import fits
@@ -18,6 +19,8 @@ from aotools.image_processing import centroiders
 
 from .. import AOFFT, logger
 from . import shackhartmann
+from .. import numbalib
+from .. import lineofsight
 
 # xrange now just "range" in python3.
 # Following code means fastest implementation used in 2 and 3
@@ -44,23 +47,49 @@ class ExtendedSH(shackhartmann.ShackHartmann):
         """
         super(ExtendedSH, self).initFFTs()
 
-        self.corrFFT = AOFFT.FFT(
-                inputSize=(
-                    self.activeSubaps, self.wfsConfig.pxlsPerSubap,
-                    self.wfsConfig.pxlsPerSubap),
-                axes=(-2,-1), mode="pyfftw",dtype=CDTYPE,
-                THREADS=self.wfsConfig.fftwThreads,
-                fftw_FLAGS=(self.wfsConfig.fftwFlag,"FFTW_DESTROY_INPUT"),
-                )
+        # self.corrFFT = AOFFT.FFT(
+        #         inputSize=(
+        #             self.activeSubaps, self.wfsConfig.pxlsPerSubap,
+        #             self.wfsConfig.pxlsPerSubap),
+        #         axes=(-2,-1), mode="pyfftw",dtype=CDTYPE,
+        #         THREADS=self.wfsConfig.fftwThreads,
+        #         fftw_FLAGS=(self.wfsConfig.fftwFlag,"FFTW_DESTROY_INPUT"),
+        #         )
 
-        self.corrIFFT = AOFFT.FFT(
-                inputSize=(
-                    self.activeSubaps, self.wfsConfig.pxlsPerSubap,
-                    self.wfsConfig.pxlsPerSubap),
-                axes=(-2,-1), mode="pyfftw",dtype=CDTYPE,
-                THREADS=self.wfsConfig.fftwThreads,
-                fftw_FLAGS=(self.wfsConfig.fftwFlag,"FFTW_DESTROY_INPUT"),
-                direction="BACKWARD")
+        # Init the FFT to the focal plane
+        # self.FFT = AOFFT.FFT(
+        #         inputSize=(
+        #             self.n_subaps, self.subapFFTPadding, self.subapFFTPadding),
+        #         axes=(-2,-1), mode="pyfftw",dtype=CDTYPE,
+        #         THREADS=self.threads,
+        #         fftw_FLAGS=(self.config.fftwFlag,"FFTW_DESTROY_INPUT"))
+
+        self.corr_fft_input_data = pyfftw.empty_aligned(
+            (self.n_subaps, self.wfsConfig.pxlsPerSubap, self.wfsConfig.pxlsPerSubap), dtype=CDTYPE)
+        self.corr_fft_output_data = pyfftw.empty_aligned(
+            (self.n_subaps, self.wfsConfig.pxlsPerSubap, self.wfsConfig.pxlsPerSubap), dtype=CDTYPE)
+        self.corrFFT = pyfftw.FFTW(
+            self.corr_fft_input_data, self.corr_fft_output_data, axes=(-2, -1),
+            threads=self.threads, flags=(self.wfsConfig.fftwFlag,"FFTW_DESTROY_INPUT")
+        )
+
+        self.corr_ifft_input_data = pyfftw.empty_aligned(
+            (self.n_subaps, self.wfsConfig.pxlsPerSubap, self.wfsConfig.pxlsPerSubap), dtype=CDTYPE)
+        self.corr_ifft_output_data = pyfftw.empty_aligned(
+            (self.n_subaps, self.wfsConfig.pxlsPerSubap, self.wfsConfig.pxlsPerSubap), dtype=CDTYPE)
+        self.corrIFFT = pyfftw.FFTW(
+            self.corr_ifft_input_data, self.corr_ifft_output_data, axes=(-2, -1),
+            threads=self.threads, flags=(self.wfsConfig.fftwFlag,"FFTW_DESTROY_INPUT"), direction="FFTW_BACKWARD"
+        )
+
+        # self.corrIFFT = AOFFT.FFT(
+        #         inputSize=(
+        #             self.activeSubaps, self.wfsConfig.pxlsPerSubap,
+        #             self.wfsConfig.pxlsPerSubap),
+        #         axes=(-2,-1), mode="pyfftw",dtype=CDTYPE,
+        #         THREADS=self.wfsConfig.fftwThreads,
+        #         fftw_FLAGS=(self.wfsConfig.fftwFlag,"FFTW_DESTROY_INPUT"),
+        #         direction="BACKWARD")
 
         # Also open object if its given
         self.extendedObject = self.wfsConfig.extendedObject
@@ -73,7 +102,7 @@ class ExtendedSH(shackhartmann.ShackHartmann):
             self.objectConv = None
         else:
             self.objectConv = AOFFT.Convolve(
-                    self.FPSubapArrays.shape, self.extendedObject.shape,
+                    self.binnedFPSubapArrays.shape, self.extendedObject.shape,
                     threads=self.wfsConfig.fftwThreads, axes=(-2, -1)
                     )
 
@@ -86,19 +115,28 @@ class ExtendedSH(shackhartmann.ShackHartmann):
         """
         if self.extendedObject is not None:
             # Perform correlation to get subap images
-            self.FPSubapArrays[:] = self.objectConv(
-                    self.FPSubapArrays, self.extendedObject).real
+            self.binnedFPSubapArrays[:] = self.objectConv(
+                    self.binnedFPSubapArrays, self.extendedObject).real
 
         # If sub-ap is oversized, apply field mask (TODO:make more general)
-        if self.SUBAP_OVERSIZE!=1:
+        if self.SUBAP_OVERSIZE != 1:
             coord = int(self.subapFFTPadding/(2*self.SUBAP_OVERSIZE))
+            print(coord)
             fieldMask = numpy.zeros((self.subapFFTPadding,)*2)
             fieldMask[coord:-coord, coord:-coord] = 1
 
-            self.FPSubapArrays *= fieldMask
+            self.binnedFPSubapArrays *= fieldMask
 
         # Finally, run put these arrays onto the simulated detector
-        super(ExtendedSH, self).integrateDetectorPlane()
+        numbalib.wfslib.bin_imgs(
+            self.subap_focus_intensity, self.config.fftOversamp, self.binnedFPSubapArrays,
+        )
+
+        # Scale each sub-ap flux by sub-aperture fill-factor
+        self.binnedFPSubapArrays = (self.binnedFPSubapArrays.T * self.subapFillFactor).T
+
+        numbalib.wfslib.place_subaps_on_detector(
+            self.binnedFPSubapArrays, self.detector, self.detector_subap_coords, self.valid_subap_coords)
 
     def makeCorrelationImgs(self):
         """
@@ -137,55 +175,6 @@ class ExtendedSH(shackhartmann.ShackHartmann):
                 numpy.fft.fft2(subap_pad, axes=(1,2)) * numpy.fft.fft2(ref_pad, axes=(1,2)))).real
 
 
-    def calculateSlopes(self):
-        '''
-        Calculates WFS slopes from wfsFocalPlane
-
-        Returns:
-            ndarray: array of all WFS measurements
-        '''
-
-        # Sort out FP into subaps
-        for i in xrange(self.activeSubaps):
-            x, y = self.detectorSubapCoords[i]
-            x = int(x)
-            y = int(y)
-            self.centSubapArrays[i] = self.wfsDetectorPlane[x:x+self.wfsConfig.pxlsPerSubap,
-                                                    y:y+self.wfsConfig.pxlsPerSubap ].astype(DTYPE)
-        # If a reference image is supplied, use it for correlation centroiding
-        if self.referenceImage is not None:
-            self.makeCorrelationImgs()
-        # Else: Just centroid on the extended image
-        else:
-            self.corrSubapArrays = self.FPSubapArrays
-
-        slopes = eval("centroiders."+self.wfsConfig.centMethod)(
-                self.corrSubapArrays,
-                threshold=self.wfsConfig.centThreshold,
-                )
-
-        # shift slopes relative to subap centre and remove static offsets
-        slopes -= self.wfsConfig.pxlsPerSubap/2.0
-
-        if numpy.any(self.staticData):
-            slopes -= self.staticData
-
-        self.slopes[:] = slopes.reshape(self.activeSubaps*2)
-
-        if self.wfsConfig.removeTT == True:
-            self.slopes[:self.activeSubaps] -= self.slopes[:self.activeSubaps].mean()
-            self.slopes[self.activeSubaps:] -= self.slopes[self.activeSubaps:].mean()
-
-        if self.wfsConfig.angleEquivNoise and not self.iMat:
-            pxlEquivNoise = (
-                    self.wfsConfig.angleEquivNoise *
-                    float(self.wfsConfig.pxlsPerSubap)
-                    /self.wfsConfig.subapFOV )
-            self.slopes += numpy.random.normal(
-                    0, pxlEquivNoise, 2*self.activeSubaps)
-
-        return self.slopes
-
     @property
     def referenceImage(self):
         """
@@ -202,7 +191,7 @@ class ExtendedSH(shackhartmann.ShackHartmann):
 
             # Shape of expected ref values
             refShape = (
-                    self.activeSubaps, self.wfsConfig.pxlsPerSubap,
+                    self.n_subaps, self.wfsConfig.pxlsPerSubap,
                     self.wfsConfig.pxlsPerSubap)
             self._referenceImage = numpy.zeros(refShape)
 
@@ -214,7 +203,7 @@ class ExtendedSH(shackhartmann.ShackHartmann):
             elif referenceImage.shape == (self.wfsConfig.pxlsPerSubap,)*2:
                 # Make a placeholder for the reference image
                 self._referenceImage = numpy.zeros(
-                        (self.activeSubaps, self.wfsConfig.pxlsPerSubap,
+                        (self.n_subaps, self.wfsConfig.pxlsPerSubap,
                         self.wfsConfig.pxlsPerSubap))
                 self._referenceImage[:] = referenceImage
 
@@ -231,6 +220,9 @@ class ExtendedSH(shackhartmann.ShackHartmann):
                     self._referenceImage, axes=(1,2))
         else:
             self._referenceImage = None
+
+    def initLos(self):
+        self.los = lineofsight.ExtendedLineOfSight(self.config, self.soapy_config, propagationDirection="down")
 
     @property
     def extendedObject(self):

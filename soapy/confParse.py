@@ -751,6 +751,11 @@ class WfsConfig(ConfigObj):
         ``photometric_zp``      float: Photometric zeropoint -
                                 number of photons/meter^2/second/band
                                 from a magnitude 0 star             ``2e9``
+        ``GSSpacing``           float: Separation between sources   ``None``
+                                for extended isoplanatic source
+        ``GSSamples``           int: Number of sources across 1     ``None``
+                                axis of the grid (e.g 3 = 3x3)
+
         =====================   ================================== ===========
 
 
@@ -787,7 +792,10 @@ class WfsConfig(ConfigObj):
                         ("correlationFFTPad", None),
                         ("nx_guard_pixels", 0),
                         ("loadModule", None),
-                        ("photometric_zp", 2e9)
+                        ("photometric_zp", 2e9),
+                        ("GSSpacing", None),
+                        ("GSSamples", None),
+                        ("GSPositions", None),
                         ]
 
         # Parameters which may be Set at some point and are allowed
@@ -814,6 +822,20 @@ class WfsConfig(ConfigObj):
         # If LGS exists, calc its params too
         # if self.lgs is not None:
         #     self.lgs.calcParams()
+        if self.GSSamples is not None:
+            self.GSPositions = numpy.zeros((self.GSSamples, self.GSSamples, 2))
+            if self.GSSamples%2 == 0:
+                pass
+            else:
+                centre = int(self.GSSamples/2)
+                for i in range(self.GSSamples):
+                    for j in range(self.GSSamples):
+                        self.GSPositions[i, j, 0] = (i-centre)*self.GSSpacing + self.GSPosition[0]
+                        self.GSPositions[i, j, 1] = (j-centre)*self.GSSpacing + self.GSPosition[1]
+
+        else:
+            self.GSPositions = None
+
 
 class TelConfig(ConfigObj):
     """
