@@ -1,6 +1,6 @@
 
 from . import shackhartmann
-from .. import numbalib, AOFFT
+from .. import numbalib, AOFFT, lineofsight
 
 from astropy.io import fits
 import numpy
@@ -8,6 +8,7 @@ import numpy
 # The data type of data arrays (complex and real respectively)
 CDTYPE = numpy.complex64
 DTYPE = numpy.float32
+
 
 class ExtendedSH(shackhartmann.ShackHartmann):
     """
@@ -33,6 +34,13 @@ class ExtendedSH(shackhartmann.ShackHartmann):
                                                 threads=self.wfsConfig.fftwThreads, axes=(-2, -1))
 
         self.corrSubapArrays = numpy.zeros(self.centSubapArrays.shape, dtype=DTYPE)
+
+    def initLos(self):
+        self.los = lineofsight.ExtendedLineOfSight(self.config, self.soapy_config, propagationDirection="down")
+
+    def getStatic(self):
+        # TODO: Implement this from Shack-Hartmann
+        pass
 
     def calcFocalPlane(self, intensity=1):
         '''
@@ -96,3 +104,25 @@ class ExtendedSH(shackhartmann.ShackHartmann):
 
         numbalib.wfslib.place_subaps_on_detector(
             self.binnedFPSubapArrays, self.detector, self.detector_subap_coords, self.valid_subap_coords)
+
+    def zeroPhaseData(self):
+        # TODO: Implement this in loop for Lines of sight
+        pass
+
+    def frame(self, scrns, phase_correction=None, read=True, iMatFrame=False):
+        # TODO: Implement the framing using multiple FOVs
+        pass
+
+    def calculateSlopes(self):
+        # TODO :Implement this for extended FOV WFS
+        pass
+
+    @property
+    def EField(self):
+        # TODO: Find the central EField to return? Or return them all
+        return self.los.EField
+
+    @EField.setter
+    def EField(self, EField):
+        # TODO: How do we get around this...
+        self.los.EField = EField

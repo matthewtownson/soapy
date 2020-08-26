@@ -24,6 +24,7 @@ Examples::
 """
 
 import numpy
+import copy
 
 from aotools import opticalpropagation
 
@@ -512,24 +513,30 @@ class ExtendedLineOfSight(LineOfSight):
         Create the sub-lines of sight. An individual LOS is generated for each field direction in the
         self.config.GSPositions array.
         """
-        # TODO: Fill this in!
-        lines_of_sight_list = []
+        centre = int(self.config.GSSamples/2)
+        lines_of_sight_dictionary = {}
         for x in range(self.config.GSSamples):
             for y in range(self.config.GSSamples):
-                lines_of_sight_list.append("%02d_x_%02d_y" % (x, y))
+                lines_of_sight_name = "%02d_x_%02d_y" % (x, y)
+                new_config = copy.deepcopy(self.config)
+                new_soapy_config = copy.deepcopy(self.soapy_config)
+                x_position = float((x-centre)*self.config.GSSpacing + self.config.GSPosition[0])
+                y_position = float((y-centre)*self.config.GSSpacing + self.config.GSPosition[1])
+                new_config.GSPosition = [x_position, y_position]
+                new_soapy_config.GSPosition = [x_position, y_position]
 
-        lines_of_sight_dictionary = {}
-        for name in lines_of_sight_list:
-            new_config = self.config
-            new_config.GSPosition = [0., 0.]
-
-            lines_of_sight_dictionary[name] = LineOfSight(new_config, self.soapy_config,
-                                                       propagation_direction=self.propagation_direction,
-                                                       out_pixel_scale=self.out_pixel_scale,
-                                                       nx_out_pixels=self.nx_out_pixels, mask=self.mask,
-                                                       metaPupilPos=self.metaPupilPos)
+                lines_of_sight_dictionary[lines_of_sight_name] = LineOfSight(new_config, new_soapy_config,
+                                                           propagation_direction=self.propagation_direction,
+                                                           out_pixel_scale=self.out_pixel_scale,
+                                                           nx_out_pixels=self.nx_out_pixels, mask=self.mask,
+                                                           metaPupilPos=self.metaPupilPos)
 
         return lines_of_sight_dictionary
+
+    def frame(self, scrns=None, correction=None):
+        # TODO: Implement framing on all of the sub-lines of sights
+        for los in self.lines_of_sight:
+            los.residual = los.frame(scrns)
 
     @property
     def positions(self):
