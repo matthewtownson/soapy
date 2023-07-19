@@ -88,7 +88,7 @@ if __name__=="__main__":
     parser.add_argument('-d', "--debug", action='store_true', dest='debug',
         help='Sets the verbosity to highest level for debugging purposes (same is -v 3)')
 
-    bin_path = os.path.abspath(os.path.realpath(__file__)+"/..")
+    bin_path = os.path.abspath(f"{os.path.realpath(__file__)}/..")
 
     #Finally, parse args
     args = parser.parse_args()
@@ -96,18 +96,10 @@ if __name__=="__main__":
     if args.configFile is None:
         raise ValueError("Must supply a configuration file")
 
-    #default confFile
-    if args.configFile!=None:
-        configFile = args.configFile
-    else:
-        configFile = bin_path+"/../conf/sh_8x8.yaml"
-
+    configFile = args.configFile
     # Run sim with given args
     # Set the verbosity
-    if args.debug:
-        verbosity = 3
-    else:
-        verbosity = args.verbosity
+    verbosity = 3 if args.debug else args.verbosity
     soapy.logger.setLoggingLevel(verbosity)
 
     #init sim with conf file

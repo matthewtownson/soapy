@@ -50,63 +50,59 @@ class MatplotlibExporter(Exporter):
                     spine.set_color('none')
                     # do not draw the spine
                 else:
-                    raise ValueError('Unknown spine location: %s' % loc)
+                    raise ValueError(f'Unknown spine location: {loc}')
                 # turn off ticks when there is no spine
                 ax.xaxis.set_ticks_position('bottom')
     
     def export(self, fileName=None):
         
-        if isinstance(self.item, PlotItem):
-            mpw = MatplotlibWindow()
-            MatplotlibExporter.windows.append(mpw)
-
-            stdFont = 'Arial'
-            
-            fig = mpw.getFigure()
-            
-            # get labels from the graphic item
-            xlabel = self.item.axes['bottom']['item'].label.toPlainText()
-            ylabel = self.item.axes['left']['item'].label.toPlainText()
-            title = self.item.titleLabel.text
-
-            ax = fig.add_subplot(111, title=title)
-            ax.clear()
-            self.cleanAxes(ax)
-            #ax.grid(True)
-            for item in self.item.curves:
-                x, y = item.getData()
-                opts = item.opts
-                pen = fn.mkPen(opts['pen'])
-                if pen.style() == QtCore.Qt.NoPen:
-                    linestyle = ''
-                else:
-                    linestyle = '-'
-                color = tuple([c/255. for c in fn.colorTuple(pen.color())])
-                symbol = opts['symbol']
-                if symbol == 't':
-                    symbol = '^'
-                symbolPen = fn.mkPen(opts['symbolPen'])
-                symbolBrush = fn.mkBrush(opts['symbolBrush'])
-                markeredgecolor = tuple([c/255. for c in fn.colorTuple(symbolPen.color())])
-                markerfacecolor = tuple([c/255. for c in fn.colorTuple(symbolBrush.color())])
-                markersize = opts['symbolSize']
-                
-                if opts['fillLevel'] is not None and opts['fillBrush'] is not None:
-                    fillBrush = fn.mkBrush(opts['fillBrush'])
-                    fillcolor = tuple([c/255. for c in fn.colorTuple(fillBrush.color())])
-                    ax.fill_between(x=x, y1=y, y2=opts['fillLevel'], facecolor=fillcolor)
-                
-                pl = ax.plot(x, y, marker=symbol, color=color, linewidth=pen.width(), 
-                        linestyle=linestyle, markeredgecolor=markeredgecolor, markerfacecolor=markerfacecolor,
-                        markersize=markersize)
-                xr, yr = self.item.viewRange()
-                ax.set_xbound(*xr)
-                ax.set_ybound(*yr)
-            ax.set_xlabel(xlabel)  # place the labels.
-            ax.set_ylabel(ylabel)
-            mpw.draw()
-        else:
+        if not isinstance(self.item, PlotItem):
             raise Exception("Matplotlib export currently only works with plot items")
+        mpw = MatplotlibWindow()
+        MatplotlibExporter.windows.append(mpw)
+
+        stdFont = 'Arial'
+
+        fig = mpw.getFigure()
+
+        # get labels from the graphic item
+        xlabel = self.item.axes['bottom']['item'].label.toPlainText()
+        ylabel = self.item.axes['left']['item'].label.toPlainText()
+        title = self.item.titleLabel.text
+
+        ax = fig.add_subplot(111, title=title)
+        ax.clear()
+        self.cleanAxes(ax)
+            #ax.grid(True)
+        for item in self.item.curves:
+            x, y = item.getData()
+            opts = item.opts
+            pen = fn.mkPen(opts['pen'])
+            linestyle = '' if pen.style() == QtCore.Qt.NoPen else '-'
+            color = tuple(c/255. for c in fn.colorTuple(pen.color()))
+            symbol = opts['symbol']
+            if symbol == 't':
+                symbol = '^'
+            symbolPen = fn.mkPen(opts['symbolPen'])
+            symbolBrush = fn.mkBrush(opts['symbolBrush'])
+            markeredgecolor = tuple(c/255. for c in fn.colorTuple(symbolPen.color()))
+            markerfacecolor = tuple(c/255. for c in fn.colorTuple(symbolBrush.color()))
+            markersize = opts['symbolSize']
+
+            if opts['fillLevel'] is not None and opts['fillBrush'] is not None:
+                fillBrush = fn.mkBrush(opts['fillBrush'])
+                fillcolor = tuple(c/255. for c in fn.colorTuple(fillBrush.color()))
+                ax.fill_between(x=x, y1=y, y2=opts['fillLevel'], facecolor=fillcolor)
+
+            pl = ax.plot(x, y, marker=symbol, color=color, linewidth=pen.width(), 
+                    linestyle=linestyle, markeredgecolor=markeredgecolor, markerfacecolor=markerfacecolor,
+                    markersize=markersize)
+            xr, yr = self.item.viewRange()
+            ax.set_xbound(*xr)
+            ax.set_ybound(*yr)
+        ax.set_xlabel(xlabel)  # place the labels.
+        ax.set_ylabel(ylabel)
+        mpw.draw()
                 
 MatplotlibExporter.register()        
         

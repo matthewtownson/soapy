@@ -46,9 +46,7 @@ class GraphicsWidget(GraphicsItem, QtGui.QGraphicsWidget):
         return self.geometry().width()
 
     def boundingRect(self):
-        br = self.mapRectFromParent(self.geometry()).normalized()
-        #print "bounds:", br
-        return br
+        return self.mapRectFromParent(self.geometry()).normalized()
         
     def shape(self):  ## No idea why this is necessary, but rotated items do not receive clicks otherwise.
         p = QtGui.QPainterPath()

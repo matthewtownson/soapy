@@ -178,9 +178,7 @@ class PlotDataItem(GraphicsObject):
     
     def implements(self, interface=None):
         ints = ['plotData']
-        if interface is None:
-            return ints
-        return interface in ints
+        return ints if interface is None else interface in ints
     
     def name(self):
         return self.opts.get('name', None)
@@ -361,7 +359,7 @@ class PlotDataItem(GraphicsObject):
             elif dt == 'Nx2array':
                 x = data[:,0]
                 y = data[:,1]
-            elif dt == 'recarray' or dt == 'dictOfLists':
+            elif dt in ['recarray', 'dictOfLists']:
                 if 'x' in data:
                     x = np.array(data['x'])
                 if 'y' in data:
@@ -378,30 +376,26 @@ class PlotDataItem(GraphicsObject):
                 y = data.view(np.ndarray)
                 x = data.xvals(0).view(np.ndarray)
             else:
-                raise Exception('Invalid data type %s' % type(data))
-            
+                raise Exception(f'Invalid data type {type(data)}')
+
         elif len(args) == 2:
             seq = ('listOfValues', 'MetaArray', 'empty')
             dtyp = dataType(args[0]), dataType(args[1])
             if dtyp[0] not in seq or dtyp[1] not in seq:
-                raise Exception('When passing two unnamed arguments, both must be a list or array of values. (got %s, %s)' % (str(type(args[0])), str(type(args[1]))))
+                raise Exception(
+                    f'When passing two unnamed arguments, both must be a list or array of values. (got {str(type(args[0]))}, {str(type(args[1]))})'
+                )
             if not isinstance(args[0], np.ndarray):
                 #x = np.array(args[0])
-                if dtyp[0] == 'MetaArray':
-                    x = args[0].asarray()
-                else:
-                    x = np.array(args[0])
+                x = args[0].asarray() if dtyp[0] == 'MetaArray' else np.array(args[0])
             else:
                 x = args[0].view(np.ndarray)
             if not isinstance(args[1], np.ndarray):
                 #y = np.array(args[1])
-                if dtyp[1] == 'MetaArray':
-                    y = args[1].asarray()
-                else:
-                    y = np.array(args[1])
+                y = args[1].asarray() if dtyp[1] == 'MetaArray' else np.array(args[1])
             else:
                 y = args[1].view(np.ndarray)
-            
+
         if 'x' in kargs:
             x = kargs['x']
         if 'y' in kargs:
@@ -410,85 +404,84 @@ class PlotDataItem(GraphicsObject):
         profiler('interpret data')
         ## pull in all style arguments. 
         ## Use self.opts to fill in anything not present in kargs.
-        
+
         if 'name' in kargs:
             self.opts['name'] = kargs['name']
         if 'connect' in kargs:
             self.opts['connect'] = kargs['connect']
 
         ## if symbol pen/brush are given with no symbol, then assume symbol is 'o'
-        
+
         if 'symbol' not in kargs and ('symbolPen' in kargs or 'symbolBrush' in kargs or 'symbolSize' in kargs):
             kargs['symbol'] = 'o'
-            
+
         if 'brush' in kargs:
             kargs['fillBrush'] = kargs['brush']
-            
+
         for k in list(self.opts.keys()):
             if k in kargs:
                 self.opts[k] = kargs[k]
-                
-        #curveArgs = {}
-        #for k in ['pen', 'shadowPen', 'fillLevel', 'brush']:
-            #if k in kargs:
-                #self.opts[k] = kargs[k]
-            #curveArgs[k] = self.opts[k]
-            
-        #scatterArgs = {}
-        #for k,v in [('symbolPen','pen'), ('symbolBrush','brush'), ('symbol','symbol')]:
-            #if k in kargs:
-                #self.opts[k] = kargs[k]
-            #scatterArgs[v] = self.opts[k]
-        
 
         if y is None:
             return
-        if y is not None and x is None:
+        if x is None:
             x = np.arange(len(y))
-        
+
         if isinstance(x, list):
             x = np.array(x)
         if isinstance(y, list):
             y = np.array(y)
-        
+
         self.xData = x.view(np.ndarray)  ## one last check to make sure there are no MetaArrays getting by
         self.yData = y.view(np.ndarray)
         self.xClean = self.yClean = None
         self.xDisp = None
         self.yDisp = None
         profiler('set data')
-        
+
         self.updateItems()
         profiler('update items')
-        
+
         self.informViewBoundsChanged()
-        #view = self.getViewBox()
-        #if view is not None:
-            #view.itemBoundsChanged(self)  ## inform view so it can update its range if it wants
-        
         self.sigPlotChanged.emit(self)
         profiler('emit')
 
     def updateItems(self):
         
-        curveArgs = {}
-        for k,v in [('pen','pen'), ('shadowPen','shadowPen'), ('fillLevel','fillLevel'), ('fillBrush', 'brush'), ('antialias', 'antialias'), ('connect', 'connect'), ('stepMode', 'stepMode')]:
-            curveArgs[v] = self.opts[k]
-        
-        scatterArgs = {}
-        for k,v in [('symbolPen','pen'), ('symbolBrush','brush'), ('symbol','symbol'), ('symbolSize', 'size'), ('data', 'data'), ('pxMode', 'pxMode'), ('antialias', 'antialias')]:
-            if k in self.opts:
-                scatterArgs[v] = self.opts[k]
-        
+        curveArgs = {
+            v: self.opts[k]
+            for k, v in [
+                ('pen', 'pen'),
+                ('shadowPen', 'shadowPen'),
+                ('fillLevel', 'fillLevel'),
+                ('fillBrush', 'brush'),
+                ('antialias', 'antialias'),
+                ('connect', 'connect'),
+                ('stepMode', 'stepMode'),
+            ]
+        }
+        scatterArgs = {
+            v: self.opts[k]
+            for k, v in [
+                ('symbolPen', 'pen'),
+                ('symbolBrush', 'brush'),
+                ('symbol', 'symbol'),
+                ('symbolSize', 'size'),
+                ('data', 'data'),
+                ('pxMode', 'pxMode'),
+                ('antialias', 'antialias'),
+            ]
+            if k in self.opts
+        }
         x,y = self.getData()
         #scatterArgs['mask'] = self.dataMask
-        
+
         if curveArgs['pen'] is not None or (curveArgs['brush'] is not None and curveArgs['fillLevel'] is not None):
             self.curve.setData(x=x, y=y, **curveArgs)
             self.curve.show()
         else:
             self.curve.hide()
-        
+
         if scatterArgs['symbol'] is not None:
             self.scatter.setData(x=x, y=y, **scatterArgs)
             self.scatter.show()
@@ -692,19 +685,18 @@ def dataType(obj):
         return 'dictOfLists'
     elif isSequence(obj):
         first = obj[0]
-        
+
         if (hasattr(obj, 'implements') and obj.implements('MetaArray')):
             return 'MetaArray'
         elif isinstance(obj, np.ndarray):
             if obj.ndim == 1:
-                if obj.dtype.names is None:
-                    return 'listOfValues'
-                else:
-                    return 'recarray'
+                return 'listOfValues' if obj.dtype.names is None else 'recarray'
             elif obj.ndim == 2 and obj.dtype.names is None and obj.shape[1] == 2:
                 return 'Nx2array'
             else:
-                raise Exception('array shape must be (N,) or (N,2); got %s instead' % str(obj.shape))
+                raise Exception(
+                    f'array shape must be (N,) or (N,2); got {str(obj.shape)} instead'
+                )
         elif isinstance(first, dict):
             return 'listOfDicts'
         else:

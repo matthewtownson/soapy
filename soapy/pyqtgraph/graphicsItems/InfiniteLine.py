@@ -62,10 +62,7 @@ class InfiniteLine(GraphicsObject):
 
         GraphicsObject.__init__(self)
 
-        if bounds is None:              ## allowed value boundaries for orthogonal lines
-            self.maxRange = [None, None]
-        else:
-            self.maxRange = bounds
+        self.maxRange = [None, None] if bounds is None else bounds
         self.moving = False
         self.setMovable(movable)
         self.mouseHovering = False
@@ -84,7 +81,7 @@ class InfiniteLine(GraphicsObject):
         else:
             self.setHoverPen(hoverPen)
         self.currentPen = self.pen
-        
+
         if label is not None:
             labelOpts = {} if labelOpts is None else labelOpts
             self.label = InfLineLabel(self, text=label, **labelOpts)
@@ -139,13 +136,12 @@ class InfiniteLine(GraphicsObject):
             newPos = pos
         elif isinstance(pos, QtCore.QPointF):
             newPos = [pos.x(), pos.y()]
+        elif self.angle == 90:
+            newPos = [pos, 0]
+        elif self.angle == 0:
+            newPos = [0, pos]
         else:
-            if self.angle == 90:
-                newPos = [pos, 0]
-            elif self.angle == 0:
-                newPos = [0, pos]
-            else:
-                raise Exception("Must specify 2D coordinate for non-orthogonal lines.")
+            raise Exception("Must specify 2D coordinate for non-orthogonal lines.")
 
         ## check bounds (only works for orthogonal lines)
         if self.angle == 90:
@@ -229,10 +225,7 @@ class InfiniteLine(GraphicsObject):
         p.drawLine(self._line)
 
     def dataBounds(self, axis, frac=1.0, orthoRange=None):
-        if axis == 0:
-            return None   ## x axis should never be auto-scaled
-        else:
-            return (0,0)
+        return None if axis == 0 else (0, 0)
 
     def mouseDragEvent(self, ev):
         if self.movable and ev.button() == QtCore.Qt.LeftButton:
@@ -270,10 +263,7 @@ class InfiniteLine(GraphicsObject):
         if self.mouseHovering == hover:
             return
         self.mouseHovering = hover
-        if hover:
-            self.currentPen = self.hoverPen
-        else:
-            self.currentPen = self.pen
+        self.currentPen = self.hoverPen if hover else self.pen
         self.update()
 
     def viewTransformChanged(self):
@@ -333,17 +323,15 @@ class InfLineLabel(TextItem):
         if anchors is None:
             # automatically pick sensible anchors
             rax = kwds.get('rotateAxis', None)
-            if rax is not None:
-                if tuple(rax) == (1,0):
-                    anchors = [(0.5, 0), (0.5, 1)]
-                else:
-                    anchors = [(0, 0.5), (1, 0.5)]
+            if (
+                rax is not None
+                and tuple(rax) == (1, 0)
+                or rax is None
+                and line.angle % 180 == 0
+            ):
+                anchors = [(0.5, 0), (0.5, 1)]
             else:
-                if line.angle % 180 == 0:
-                    anchors = [(0.5, 0), (0.5, 1)]
-                else:
-                    anchors = [(0, 0.5), (1, 0.5)]
-            
+                anchors = [(0, 0.5), (1, 0.5)]
         self.anchors = anchors
         TextItem.__init__(self, **kwds)
         self.setParentItem(line)

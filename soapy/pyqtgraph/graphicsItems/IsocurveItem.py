@@ -88,12 +88,8 @@ class IsocurveItem(GraphicsObject):
         if self.data is None:
             self.path = None
             return
-        
-        if self.axisOrder == 'row-major':
-            data = self.data.T
-        else:
-            data = self.data
-        
+
+        data = self.data.T if self.axisOrder == 'row-major' else self.data
         lines = fn.isocurve(data, self.level, connected=True, extendToEdge=True)
         self.path = QtGui.QPainterPath()
         for line in lines:

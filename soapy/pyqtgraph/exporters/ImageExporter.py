@@ -13,15 +13,12 @@ class ImageExporter(Exporter):
     def __init__(self, item):
         Exporter.__init__(self, item)
         tr = self.getTargetRect()
-        if isinstance(item, QtGui.QGraphicsItem):
-            scene = item.scene()
-        else:
-            scene = item
+        scene = item.scene() if isinstance(item, QtGui.QGraphicsItem) else item
         bgbrush = scene.views()[0].backgroundBrush()
         bg = bgbrush.color()
         if bgbrush.style() == QtCore.Qt.NoBrush:
             bg.setAlpha(0)
-            
+
         self.params = Parameter(name='params', type='group', children=[
             {'name': 'width', 'type': 'int', 'value': tr.width(), 'limits': (0, None)},
             {'name': 'height', 'type': 'int', 'value': tr.height(), 'limits': (0, None)},
@@ -47,7 +44,7 @@ class ImageExporter(Exporter):
     def export(self, fileName=None, toBytes=False, copy=False):
         if fileName is None and not toBytes and not copy:
             if USE_PYSIDE:
-                filter = ["*."+str(f) for f in QtGui.QImageWriter.supportedImageFormats()]
+                filter = [f"*.{str(f)}" for f in QtGui.QImageWriter.supportedImageFormats()]
             else:
                 filter = ["*."+bytes(f).decode('utf-8') for f in QtGui.QImageWriter.supportedImageFormats()]
             preferred = ['*.png', '*.tif', '*.jpg']
@@ -57,11 +54,11 @@ class ImageExporter(Exporter):
                     filter.insert(0, p)
             self.fileSaveDialog(filter=filter)
             return
-            
+
         targetRect = QtCore.QRect(0, 0, self.params['width'], self.params['height'])
         sourceRect = self.getSourceRect()
-        
-        
+
+
         #self.png = QtGui.QImage(targetRect.size(), QtGui.QImage.Format_ARGB32)
         #self.png.fill(pyqtgraph.mkColor(self.params['background']))
         w, h = self.params['width'], self.params['height']
@@ -74,13 +71,13 @@ class ImageExporter(Exporter):
         bg[:,:,2] = color.red()
         bg[:,:,3] = color.alpha()
         self.png = fn.makeQImage(bg, alpha=True)
-        
+
         ## set resolution of image:
         origTargetRect = self.getTargetRect()
         resolutionScale = targetRect.width() / origTargetRect.width()
         #self.png.setDotsPerMeterX(self.png.dotsPerMeterX() * resolutionScale)
         #self.png.setDotsPerMeterY(self.png.dotsPerMeterY() * resolutionScale)
-        
+
         painter = QtGui.QPainter(self.png)
         #dtr = painter.deviceTransform()
         try:
@@ -90,7 +87,7 @@ class ImageExporter(Exporter):
         finally:
             self.setExportMode(False)
         painter.end()
-        
+
         if copy:
             QtGui.QApplication.clipboard().setImage(self.png)
         elif toBytes:

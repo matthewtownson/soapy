@@ -88,7 +88,7 @@ class GraphItem(GraphicsObject):
           :func:`mkPen <pyqtgraph.mkPen>`.
         * 'default' to use the default foreground color.
         """
-        if len(args) == 1 and len(kwargs) == 0:
+        if len(args) == 1 and not kwargs:
             self.pen = args[0]
         else:
             self.pen = fn.mkPen(*args, **kwargs)
@@ -126,7 +126,7 @@ class GraphItem(GraphicsObject):
             p.end()
 
     def paint(self, p, *args):
-        if self.picture == None:
+        if self.picture is None:
             self.generatePicture()
         if getConfigOption('antialias') is True:
             p.setRenderHint(p.Antialiasing)

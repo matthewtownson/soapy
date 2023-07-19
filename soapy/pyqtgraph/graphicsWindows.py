@@ -73,11 +73,9 @@ class ImageWindow(ImageView):
             self.win.setWindowTitle(kargs['title'])
             del kargs['title']
         ImageView.__init__(self, self.win)
-        if len(args) > 0 or len(kargs) > 0:
+        if args or kargs:
             self.setImage(*args, **kargs)
         self.win.setCentralWidget(self)
         for m in ['resize']:
             setattr(self, m, getattr(self.win, m))
-        #for m in ['setImage', 'autoRange', 'addItem', 'removeItem', 'blackLevel', 'whiteLevel', 'imageItem']:
-            #setattr(self, m, getattr(self.cw, m))
         self.win.show()

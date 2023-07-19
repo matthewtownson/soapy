@@ -70,7 +70,7 @@ if QT_LIB == PYSIDE:
                 elif hasattr(obj, 'parentItem'):
                     obj.parentItem()
                 else:
-                    raise Exception("Cannot determine whether Qt object %s is still alive." % obj)
+                    raise Exception(f"Cannot determine whether Qt object {obj} is still alive.")
             except RuntimeError:
                 return False
             else:
@@ -109,11 +109,11 @@ if QT_LIB == PYSIDE:
         import pysideuic
         import xml.etree.ElementTree as xml
         #from io import StringIO
-        
+
         parsed = xml.parse(uiFile)
         widget_class = parsed.find('widget').get('class')
         form_class = parsed.find('class').text
-        
+
         with open(uiFile, 'r') as f:
             o = StringIO()
             frame = {}
@@ -123,8 +123,8 @@ if QT_LIB == PYSIDE:
             exec(pyc, frame)
 
             #Fetch the base_class and form class based on their type in the xml from designer
-            form_class = frame['Ui_%s'%form_class]
-            base_class = eval('QtGui.%s'%widget_class)
+            form_class = frame[f'Ui_{form_class}']
+            base_class = eval(f'QtGui.{widget_class}')
 
         return form_class, base_class
 

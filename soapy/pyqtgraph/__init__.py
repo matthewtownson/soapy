@@ -4,6 +4,7 @@ PyQtGraph - Scientific Graphics and GUI Library for Python
 www.pyqtgraph.org
 """
 
+
 __version__ = '0.9.10'
 
 ### import all the goodies and add some helper functions for easy CLI use
@@ -12,13 +13,7 @@ __version__ = '0.9.10'
 ## between PyQt4 and PySide.
 from .Qt import QtGui
 
-## not really safe--If we accidentally create another QApplication, the process hangs (and it is very difficult to trace the cause)
-#if QtGui.QApplication.instance() is None:
-    #app = QtGui.QApplication([])
-
 import numpy  ## pyqtgraph requires numpy
-              ## (import here to avoid massive error dump later on if numpy is not available)
-
 import os, sys
 
 ## check python version
@@ -36,16 +31,13 @@ from . import numpy_fix
 ## we only enable it where the performance benefit is critical.
 ## Note this only applies to 2D graphics; 3D graphics always use OpenGL.
 if 'linux' in sys.platform:  ## linux has numerous bugs in opengl implementation
-    useOpenGL = False
+    pass
 elif 'darwin' in sys.platform: ## openGL can have a major impact on mac, but also has serious bugs
-    useOpenGL = False
     if QtGui.QApplication.instance() is not None:
         print('Warning: QApplication was created before pyqtgraph was imported; there may be problems (to avoid bugs, call QApplication.setGraphicsSystem("raster") before the QApplication is created).')
     if QtGui.QApplication.setGraphicsSystem:
         QtGui.QApplication.setGraphicsSystem('raster')  ## work around a variety of bugs in the native graphics system 
-else:
-    useOpenGL = False  ## on windows there's a more even performance / bugginess tradeoff. 
-                
+useOpenGL = False
 CONFIG_OPTIONS = {
     'useOpenGL': useOpenGL, ## by default, this is platform-dependent (see widgets/GraphicsView). Set to True or False to explicitly enable/disable opengl.
     'leftButtonPan': True,  ## if false, left button drags a rubber band for zooming in viewbox
@@ -69,7 +61,7 @@ CONFIG_OPTIONS = {
 def setConfigOption(opt, value):
     global CONFIG_OPTIONS
     if opt not in CONFIG_OPTIONS:
-        raise KeyError('Unknown configuration option "%s"' % opt)
+        raise KeyError(f'Unknown configuration option "{opt}"')
     if opt == 'imageAxisOrder' and value not in ('row-major', 'col-major'):
         raise ValueError('imageAxisOrder must be either "row-major" or "col-major"')
     CONFIG_OPTIONS[opt] = value
@@ -89,19 +81,19 @@ def getConfigOption(opt):
 
 
 def systemInfo():
-    print("sys.platform: %s" % sys.platform)
-    print("sys.version: %s" % sys.version)
+    print(f"sys.platform: {sys.platform}")
+    print(f"sys.version: {sys.version}")
     from .Qt import VERSION_INFO
-    print("qt bindings: %s" % VERSION_INFO)
-    
+    print(f"qt bindings: {VERSION_INFO}")
+
     global __version__
     rev = None
     if __version__ is None:  ## this code was probably checked out from bzr; look up the last-revision file
         lastRevFile = os.path.join(os.path.dirname(__file__), '..', '.bzr', 'branch', 'last-revision')
         if os.path.exists(lastRevFile):
             rev = open(lastRevFile, 'r').read().strip()
-    
-    print("pyqtgraph: %s; %s" % (__version__, rev))
+
+    print(f"pyqtgraph: {__version__}; {rev}")
     print("config:")
     import pprint
     pprint.pprint(CONFIG_OPTIONS)
@@ -117,7 +109,7 @@ def renamePyc(startDir):
     ### Note that this is no longer necessary for python 3.2; from PEP 3147:
     ### "If the py source file is missing, the pyc file inside __pycache__ will be ignored. 
     ### This eliminates the problem of accidental stale pyc file imports."
-    
+
     printed = False
     startDir = os.path.abspath(startDir)
     for path, dirs, files in os.walk(startDir):
@@ -126,7 +118,7 @@ def renamePyc(startDir):
         for f in files:
             fileName = os.path.join(path, f)
             base, ext = os.path.splitext(fileName)
-            py = base + ".py"
+            py = f"{base}.py"
             if ext == '.pyc' and not os.path.isfile(py):
                 if not printed:
                     print("NOTE: Renaming orphaned .pyc files:")
@@ -137,8 +129,8 @@ def renamePyc(startDir):
                     if not os.path.exists(name2):
                         break
                     n += 1
-                print("  " + fileName + "  ==>")
-                print("  " + name2)
+                print(f"  {fileName}  ==>")
+                print(f"  {name2}")
                 os.rename(fileName, name2)
                 
 path = os.path.split(__file__)[0]
@@ -387,14 +379,6 @@ def plot(*args, **kargs):
     All other arguments are used to plot data. (see :func:`PlotItem.plot() <pyqtgraph.PlotItem.plot>`)
     """
     mkQApp()
-    #if 'title' in kargs:
-        #w = PlotWindow(title=kargs['title'])
-        #del kargs['title']
-    #else:
-        #w = PlotWindow()
-    #if len(args)+len(kargs) > 0:
-        #w.plot(*args, **kargs)
-        
     pwArgList = ['title', 'labels', 'name', 'left', 'right', 'top', 'bottom', 'background']
     pwArgs = {}
     dataArgs = {}
@@ -403,9 +387,9 @@ def plot(*args, **kargs):
             pwArgs[k] = kargs[k]
         else:
             dataArgs[k] = kargs[k]
-        
+
     w = PlotWindow(**pwArgs)
-    if len(args) > 0 or len(dataArgs) > 0:
+    if args or dataArgs:
         w.plot(*args, **dataArgs)
     plots.append(w)
     w.show()
@@ -448,9 +432,6 @@ def dbg(*args, **kwds):
 def mkQApp():
     global QAPP
     inst = QtGui.QApplication.instance()
-    if inst is None:
-        QAPP = QtGui.QApplication([])
-    else:
-        QAPP = inst
+    QAPP = QtGui.QApplication([]) if inst is None else inst
     return QAPP
         

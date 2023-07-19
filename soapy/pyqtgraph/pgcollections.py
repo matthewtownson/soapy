@@ -191,7 +191,9 @@ def makeThreadsafe(obj):
     elif type(obj) in [str, int, float, bool, tuple]:
         return obj
     else:
-        raise Exception("Not sure how to make object of type %s thread-safe" % str(type(obj)))
+        raise Exception(
+            f"Not sure how to make object of type {str(type(obj))} thread-safe"
+        )
         
         
 class Locker(object):
@@ -210,7 +212,7 @@ class CaselessDict(OrderedDict):
     def __init__(self, *args):
         OrderedDict.__init__(self, {}) ## requirement for the empty {} here seems to be a python bug?
         self.keyMap = OrderedDict([(k.lower(), k) for k in OrderedDict.keys(self)])
-        if len(args) == 0:
+        if not args:
             return
         elif len(args) == 1 and isinstance(args[0], dict):
             for k in args[0]:

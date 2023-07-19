@@ -79,7 +79,7 @@ def statusMessage(i, maxIter, message):
 			sys.stdout.write("\n")
 
 def _printMessage(message, level=3):
-	"""
+    """
 	Internal function to add debug info to message and print
 
 	Args:
@@ -87,20 +87,21 @@ def _printMessage(message, level=3):
 	"""
 
 
-	if LOGGING_LEVEL>=level:
-		if LOGGING_LEVEL>2 or level==1:
-			curframe = inspect.currentframe()
-			calframe = inspect.getouterframes(curframe, 2)
-			message = calframe[2][1].split("/")[-1]+" -> "+calframe[2][3] + ": " + message
+    if LOGGING_LEVEL < level:
+        return
+    if LOGGING_LEVEL>2 or level==1:
+    	curframe = inspect.currentframe()
+    	calframe = inspect.getouterframes(curframe, 2)
+    	message = calframe[2][1].split("/")[-1]+" -> "+calframe[2][3] + ": " + message
 
-		if LOGGING_FILE:
-			with open(LOGGING_FILE, "a") as File:
-				File.write(COLOURS[level]+message+"\n")
+    if LOGGING_FILE:
+    	with open(LOGGING_FILE, "a") as File:
+    		File.write(COLOURS[level]+message+"\n")
 
-		if STATUS_FUNC:
-			STATUS_FUNC(message)
+    if STATUS_FUNC:
+    	STATUS_FUNC(message)
 
-		print(message)
+    print(message)
 
 def print_(message):
 	"""

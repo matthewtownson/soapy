@@ -4,15 +4,14 @@ Helper functions that smooth out the differences between python 2 and 3.
 import sys
 
 def asUnicode(x):
-    if sys.version_info[0] == 2:
-        if isinstance(x, unicode):
-            return x
-        elif isinstance(x, str):
-            return x.decode('UTF-8')
-        else:
-            return unicode(x)
-    else:
+    if sys.version_info[0] != 2:
         return str(x)
+    if isinstance(x, unicode):
+        return x
+    elif isinstance(x, str):
+        return x.decode('UTF-8')
+    else:
+        return unicode(x)
         
 def cmpToKey(mycmp):
     'Convert a cmp= function into a key= function'

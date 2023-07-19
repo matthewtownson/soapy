@@ -46,38 +46,39 @@ class PlotWidgetNode(Node):
         return self.plot
         
     def process(self, In, display=True):
-        if display and self.plot is not None:
-            items = set()
+        if not display or self.plot is None:
+            return
+        items = set()
             # Add all new input items to selected plot
-            for name, vals in In.items():
-                if vals is None:
-                    continue
-                if type(vals) is not list:
-                    vals = [vals]
-                    
-                for val in vals:
-                    vid = id(val)
-                    if vid in self.items and self.items[vid].scene() is self.plot.scene():
-                        # Item is already added to the correct scene
-                        #   possible bug: what if two plots occupy the same scene? (should
-                        #   rarely be a problem because items are removed from a plot before
-                        #   switching).
-                        items.add(vid)
+        for name, vals in In.items():
+            if vals is None:
+                continue
+            if type(vals) is not list:
+                vals = [vals]
+
+            for val in vals:
+                vid = id(val)
+                if (
+                    vid not in self.items
+                    or self.items[vid].scene() is not self.plot.scene()
+                ):
+                    # Add the item to the plot, or generate a new item if needed.
+                    if isinstance(val, QtGui.QGraphicsItem):
+                        self.plot.addItem(val)
+                        item = val
                     else:
-                        # Add the item to the plot, or generate a new item if needed.
-                        if isinstance(val, QtGui.QGraphicsItem):
-                            self.plot.addItem(val)
-                            item = val
-                        else:
-                            item = self.plot.plot(val)
-                        self.items[vid] = item
-                        items.add(vid)
-                        
-            # Any left-over items that did not appear in the input must be removed
-            for vid in list(self.items.keys()):
-                if vid not in items:
-                    self.plot.removeItem(self.items[vid])
-                    del self.items[vid]
+                        item = self.plot.plot(val)
+                    self.items[vid] = item
+                # Item is already added to the correct scene
+                #   possible bug: what if two plots occupy the same scene? (should
+                #   rarely be a problem because items are removed from a plot before
+                #   switching).
+                items.add(vid)
+        # Any left-over items that did not appear in the input must be removed
+        for vid in list(self.items.keys()):
+            if vid not in items:
+                self.plot.removeItem(self.items[vid])
+                del self.items[vid]
             
     def processBypassed(self, args):
         if self.plot is None:
@@ -136,28 +137,27 @@ class CanvasNode(Node):
         return self.canvas
         
     def process(self, In, display=True):
-        if display:
-            items = set()
-            for name, vals in In.items():
-                if vals is None:
-                    continue
-                if type(vals) is not list:
-                    vals = [vals]
-                
-                for val in vals:
-                    vid = id(val)
-                    if vid in self.items:
-                        items.add(vid)
-                    else:
-                        self.canvas.addItem(val)
-                        item = val
-                        self.items[vid] = item
-                        items.add(vid)
-            for vid in list(self.items.keys()):
-                if vid not in items:
-                    #print "remove", self.items[vid]
-                    self.canvas.removeItem(self.items[vid])
-                    del self.items[vid]
+        if not display:
+            return
+        items = set()
+        for name, vals in In.items():
+            if vals is None:
+                continue
+            if type(vals) is not list:
+                vals = [vals]
+
+            for val in vals:
+                vid = id(val)
+                if vid not in self.items:
+                    self.canvas.addItem(val)
+                    item = val
+                    self.items[vid] = item
+                items.add(vid)
+        for vid in list(self.items.keys()):
+            if vid not in items:
+                #print "remove", self.items[vid]
+                self.canvas.removeItem(self.items[vid])
+                del self.items[vid]
 
 
 class PlotCurve(CtrlNode):
@@ -252,14 +252,14 @@ class ScatterPlot(CtrlNode):
     def updateKeys(self, data):
         if isinstance(data, dict):
             keys = list(data.keys())
-        elif isinstance(data, list) or isinstance(data, tuple):
+        elif isinstance(data, (list, tuple)):
             keys = data
-        elif isinstance(data, np.ndarray) or isinstance(data, np.void):
+        elif isinstance(data, (np.ndarray, np.void)):
             keys = data.dtype.names
         else:
             print("Unknown data type:", type(data), data)
             return
-            
+
         for c in self.ctrls.values():
             c.blockSignals(True)
         for c in [self.ctrls['x'], self.ctrls['y'], self.ctrls['size']]:
@@ -273,7 +273,7 @@ class ScatterPlot(CtrlNode):
             c.setArgList(keys)
         for c in self.ctrls.values():
             c.blockSignals(False)
-                
+
         self.keys = keys
         
 

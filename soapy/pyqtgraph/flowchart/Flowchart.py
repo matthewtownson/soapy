@@ -143,10 +143,7 @@ class Flowchart(Node):
         self[oldName].rename(term.name())
         
     def internalTerminalAdded(self, node, term):
-        if term._io == 'in':
-            io = 'out'
-        else:
-            io = 'in'
+        io = 'out' if term._io == 'in' else 'in'
         Node.addTerminal(self, term.name(), io=io, renamable=term.isRenamable(), removable=term.isRemovable(), multiable=term.isMultiable())
         
     def internalTerminalRemoved(self, node, term):
@@ -219,13 +216,12 @@ class Flowchart(Node):
         
     def internalTerminal(self, term):
         """If the terminal belongs to the external Node, return the corresponding internal terminal"""
-        if term.node() is self:
-            if term.isInput():
-                return self.inputNode[term.name()]
-            else:
-                return self.outputNode[term.name()]
-        else:
+        if term.node() is not self:
             return term
+        if term.isInput():
+            return self.inputNode[term.name()]
+        else:
+            return self.outputNode[term.name()]
         
     def connectTerminals(self, term1, term2):
         """Connect two terminals together within this flowchart."""
@@ -242,58 +238,53 @@ class Flowchart(Node):
         The return value is a dict with one key per output terminal.
         
         """
-        data = {}  ## Stores terminal:value pairs
-        
         ## determine order of operations
         ## order should look like [('p', node1), ('p', node2), ('d', terminal1), ...] 
         ## Each tuple specifies either (p)rocess this node or (d)elete the result from this terminal
         order = self.processOrder()
-        #print "ORDER:", order
-        
-        ## Record inputs given to process()
-        for n, t in self.inputNode.outputs().items():
-            # if n not in args:
-            #     raise Exception("Parameter %s required to process this chart." % n)
-            if n in args:
-                data[t] = args[n]
-        
+        data = {t: args[n] for n, t in self.inputNode.outputs().items() if n in args}
         ret = {}
-            
+
         ## process all in order
         for c, arg in order:
             
-            if c == 'p':     ## Process a single node
+            if c == 'd':
+                #print "===> delete", arg
+                if arg in data:
+                    del data[arg]
+
+            elif c == 'p':
                 #print "===> process:", arg
                 node = arg
                 if node is self.inputNode:
                     continue  ## input node has already been processed.
-                
-                            
+
+
                 ## get input and output terminals for this node
                 outs = list(node.outputs().values())
                 ins = list(node.inputs().values())
-                
+
                 ## construct input value dictionary
                 args = {}
                 for inp in ins:
                     inputs = inp.inputTerminals()
-                    if len(inputs) == 0:
-                        continue
-                    if inp.isMultiValue():  ## multi-input terminals require a dict of all inputs
-                        args[inp.name()] = dict([(i, data[i]) for i in inputs if i in data])
-                    else:                   ## single-inputs terminals only need the single input value available
-                        args[inp.name()] = data[inputs[0]]  
-                        
+                    if len(inputs) != 0:
+                        args[inp.name()] = (
+                            dict([(i, data[i]) for i in inputs if i in data])
+                            if inp.isMultiValue()
+                            else data[inputs[0]]
+                        )
                 if node is self.outputNode:
                     ret = args  ## we now have the return value, but must keep processing in case there are other endpoint nodes in the chart
                 else:
                     try:
-                        if node.isBypassed():
-                            result = node.processBypassed(args)
-                        else:
-                            result = node.process(display=False, **args)
+                        result = (
+                            node.processBypassed(args)
+                            if node.isBypassed()
+                            else node.process(display=False, **args)
+                        )
                     except:
-                        print("Error processing node %s. Args are: %s" % (str(node), str(args)))
+                        print(f"Error processing node {str(node)}. Args are: {args}")
                         raise
                     for out in outs:
                         #print "    Output:", out, out.name()
@@ -302,11 +293,6 @@ class Flowchart(Node):
                             data[out] = result[out.name()]
                         except KeyError:
                             pass
-            elif c == 'd':   ## delete a terminal result (no longer needed; may be holding a lot of memory)
-                #print "===> delete", arg
-                if arg in data:
-                    del data[arg]
-
         return ret
         
     def processOrder(self):
@@ -476,12 +462,12 @@ class Flowchart(Node):
                     node = self.createNode(n['class'], name=n['name'])
                     node.restoreState(n['state'])
                 except:
-                    printExc("Error creating node %s: (continuing anyway)" % n['name'])
-                #node.graphicsItem().moveBy(*n['pos'])
-                
+                    printExc(f"Error creating node {n['name']}: (continuing anyway)")
+                        #node.graphicsItem().moveBy(*n['pos'])
+
             self.inputNode.restoreState(state.get('inputNode', {}))
             self.outputNode.restoreState(state.get('outputNode', {}))
-                
+
             #self.restoreTerminals(state['terminals'])
             for n1, t1, n2, t2 in state['connects']:
                 try:
@@ -489,12 +475,12 @@ class Flowchart(Node):
                 except:
                     print(self._nodes[n1].terminals)
                     print(self._nodes[n2].terminals)
-                    printExc("Error connecting terminals %s.%s - %s.%s:" % (n1, t1, n2, t2))
-                    
-                
+                    printExc(f"Error connecting terminals {n1}.{t1} - {n2}.{t2}:")
+                                    
+
         finally:
             self.blockSignals(False)
-            
+
         self.sigChartLoaded.emit()
         self.outputChanged()
         self.sigStateChanged.emit()
@@ -693,7 +679,9 @@ class FlowchartCtrlWidget(QtGui.QWidget):
         if fileName is None:
             self.ui.fileNameLabel.setText("<b>[ new ]</b>")
         else:
-            self.ui.fileNameLabel.setText("<b>%s</b>" % os.path.split(self.currentFileName)[1])
+            self.ui.fileNameLabel.setText(
+                f"<b>{os.path.split(self.currentFileName)[1]}</b>"
+            )
         self.resizeEvent(None)
 
     def itemChanged(self, *args):
@@ -866,10 +854,7 @@ class FlowchartWidget(dockarea.DockArea):
 
     def nodeMenuTriggered(self, action):
         nodeType = action.nodeType
-        if action.pos is not None:
-            pos = action.pos
-        else:
-            pos = self.menuPos
+        pos = action.pos if action.pos is not None else self.menuPos
         pos = self.viewBox().mapSceneToView(pos)
 
         self.chart.createNode(nodeType, pos=pos)
@@ -889,7 +874,7 @@ class FlowchartWidget(dockarea.DockArea):
                 data = {'outputs': n.outputValues(), 'inputs': n.inputValues()}
                 self.selNameLabel.setText(n.name())
                 if hasattr(n, 'nodeName'):
-                    self.selDescLabel.setText("<b>%s</b>: %s" % (n.nodeName, n.__class__.__doc__))
+                    self.selDescLabel.setText(f"<b>{n.nodeName}</b>: {n.__class__.__doc__}")
                 else:
                     self.selDescLabel.setText("")
                 if n.exception is not None:
@@ -913,12 +898,12 @@ class FlowchartWidget(dockarea.DockArea):
         else:
             val = term.value()
             if isinstance(val, ndarray):
-                val = "%s %s %s" % (type(val).__name__, str(val.shape), str(val.dtype))
+                val = f"{type(val).__name__} {str(val.shape)} {str(val.dtype)}"
             else:
                 val = str(val)
                 if len(val) > 400:
-                    val = val[:400] + "..."
-            self.hoverText.setPlainText("%s.%s = %s" % (term.node().name(), term.name(), val))
+                    val = f"{val[:400]}..."
+            self.hoverText.setPlainText(f"{term.node().name()}.{term.name()} = {val}")
             #self.hoverLabel.setCursorPosition(0)
 
     

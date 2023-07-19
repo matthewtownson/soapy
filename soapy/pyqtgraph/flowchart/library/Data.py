@@ -77,10 +77,9 @@ class ColumnSelectNode(Node):
             if col not in self.columns:
                 self.columns.add(col)
                 self.addOutput(col)
-        else:
-            if col in self.columns:
-                self.columns.remove(col)
-                self.removeTerminal(col)
+        elif col in self.columns:
+            self.columns.remove(col)
+            self.removeTerminal(col)
         self.update()
         
     def saveState(self):
@@ -223,8 +222,7 @@ class EvalNode(Node):
         return QtGui.QTextEdit.focusOutEvent(self.text, ev)
         
     def process(self, display=True, **args):
-        l = locals()
-        l.update(args)
+        l = locals() | args
         ## try eval first, then exec
         try:  
             text = str(self.text.toPlainText()).replace('\n', ' ')
@@ -232,10 +230,16 @@ class EvalNode(Node):
         except SyntaxError:
             fn = "def fn(**args):\n"
             run = "\noutput=fn(**args)\n"
-            text = fn + "\n".join(["    "+l for l in str(self.text.toPlainText()).split('\n')]) + run
+            text = (
+                fn
+                + "\n".join(
+                    [f"    {l}" for l in str(self.text.toPlainText()).split('\n')]
+                )
+                + run
+            )
             exec(text)
         except:
-            print("Error processing node: %s" % self.name())
+            print(f"Error processing node: {self.name()}")
             raise
         return output
         

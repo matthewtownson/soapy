@@ -65,29 +65,25 @@ class Exporter(object):
         fileName = asUnicode(fileName)
         global LastExportDirectory
         LastExportDirectory = os.path.split(fileName)[0]
-        
+
         ## If file name does not match selected extension, append it now
         ext = os.path.splitext(fileName)[1].lower().lstrip('.')
         selectedExt = re.search(r'\*\.(\w+)\b', asUnicode(self.fileDialog.selectedNameFilter()))
         if selectedExt is not None:
             selectedExt = selectedExt.groups()[0].lower()
             if ext != selectedExt:
-                fileName = fileName + '.' + selectedExt.lstrip('.')
-        
+                fileName = f'{fileName}.' + selectedExt.lstrip('.')
+
         self.export(fileName=fileName, **self.fileDialog.opts)
         
     def getScene(self):
-        if isinstance(self.item, GraphicsScene):
-            return self.item
-        else:
-            return self.item.scene()
+        return self.item if isinstance(self.item, GraphicsScene) else self.item.scene()
         
     def getSourceRect(self):
-        if isinstance(self.item, GraphicsScene):
-            w = self.item.getViewWidget()
-            return w.viewportTransform().inverted()[0].mapRect(w.rect())
-        else:
+        if not isinstance(self.item, GraphicsScene):
             return self.item.sceneBoundingRect()
+        w = self.item.getViewWidget()
+        return w.viewportTransform().inverted()[0].mapRect(w.rect())
         
     def getTargetRect(self):        
         if isinstance(self.item, GraphicsScene):

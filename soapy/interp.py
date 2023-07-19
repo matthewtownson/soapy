@@ -33,7 +33,7 @@ def zoom(array, newSize, order=3):
     coordsY = numpy.linspace(0, array.shape[1]-1, ySize)
 
     #If array is complex must do 2 interpolations
-    if array.dtype==numpy.complex64 or array.dtype==numpy.complex128:
+    if array.dtype in [numpy.complex64, numpy.complex128]:
 
         realInterpObj = interp2d(   numpy.arange(array.shape[0]),
                 numpy.arange(array.shape[1]), array.real, copy=False, 
@@ -78,17 +78,17 @@ def zoom_rbs(array, newSize, order=3):
     coordsY = numpy.linspace(0, array.shape[1]-1, ySize)
 
     #If array is complex must do 2 interpolations
-    if array.dtype==numpy.complex64 or array.dtype==numpy.complex128:
+    if array.dtype in [numpy.complex64, numpy.complex128]:
         realInterpObj = RectBivariateSpline(   
                 numpy.arange(array.shape[0]), numpy.arange(array.shape[1]), 
                 array.real, kx=order, ky=order)
         imagInterpObj = RectBivariateSpline(   
                 numpy.arange(array.shape[0]), numpy.arange(array.shape[1]), 
                 array.imag, kx=order, ky=order)
-                         
+
         return (realInterpObj(coordsY,coordsX)
                             + 1j*imagInterpObj(coordsY,coordsX))
-            
+
     else:
 
         interpObj = RectBivariateSpline(   numpy.arange(array.shape[0]),
@@ -112,7 +112,7 @@ def binImgs(data, n):
         binned image(s): ndarray
     '''
     shape = numpy.array( data.shape )
-    
+
     n = int(numpy.round(n))
 
     if len(data.shape)==2:
@@ -125,7 +125,6 @@ def binImgs(data, n):
         for i in range(n):
             binnedImg += binnedImgTmp[i::n,:]
 
-        return binnedImg
     else:
         shape[-1]/=n
         binnedImgTmp = numpy.zeros ( shape, dtype=data.dtype )
@@ -137,7 +136,8 @@ def binImgs(data, n):
         for i in range(n):
             binnedImg += binnedImgTmp[...,i::n,:]
 
-        return binnedImg
+
+    return binnedImg
 
 
 def zoomWithMissingData(data, newSize,
@@ -189,9 +189,9 @@ def zoomWithMissingData(data, newSize,
 
     if len(data.shape) == 2:
         idx = ~(arr == non_valid_value)
-        znew = griddata((x[idx], y[idx]), arr[idx], (xnew, ynew),
-                        method=method)
-        return znew
+        return griddata(
+            (x[idx], y[idx]), arr[idx], (xnew, ynew), method=method
+        )
     elif len(data.shape) == 3:
         narr = numpy.zeros((data.shape[0], newSize[0], newSize[1]))
         for i in range(data.shape[0]):

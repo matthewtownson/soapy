@@ -16,8 +16,7 @@ from .python2_3 import asUnicode
 __all__ = ['WidgetGroup']
 
 def splitterState(w):
-    s = str(w.saveState().toPercentEncoding())
-    return s
+    return str(w.saveState().toPercentEncoding())
     
 def restoreSplitter(w, s):
     if type(s) is list:
@@ -38,16 +37,10 @@ def comboState(w):
     #if not data.isValid():
     if data is not None:
         try:
-            if not data.isValid():
-                data = None
-            else:
-                data = data.toInt()[0]
+            data = None if not data.isValid() else data.toInt()[0]
         except AttributeError:
             pass
-    if data is None:
-        return asUnicode(w.itemText(ind))
-    else:
-        return data
+    return asUnicode(w.itemText(ind)) if data is None else data
     
 def setComboState(w, v):
     if type(v) is int:
@@ -143,24 +136,24 @@ class WidgetGroup(QtCore.QObject):
         elif widgetList is None:
             return
         else:
-            raise Exception("Wrong argument type %s" % type(widgetList))
+            raise Exception(f"Wrong argument type {type(widgetList)}")
         
     def addWidget(self, w, name=None, scale=None):
         if not self.acceptsType(w):
-            raise Exception("Widget type %s not supported by WidgetGroup" % type(w))
+            raise Exception(f"Widget type {type(w)} not supported by WidgetGroup")
         if name is None:
             name = str(w.objectName())
         if name == '':
-            raise Exception("Cannot add widget '%s' without a name." % str(w))
+            raise Exception(f"Cannot add widget '{str(w)}' without a name.")
         self.widgetList[w] = name
         self.scales[w] = scale
         self.readWidget(w)
-            
+
         if type(w) in WidgetGroup.classes:
             signal = WidgetGroup.classes[type(w)][0]
         else:
             signal = w.widgetGroupInterface()[0]
-            
+
         if signal is not None:
             if inspect.isfunction(signal) or inspect.ismethod(signal):
                 signal = signal(w)
@@ -169,10 +162,7 @@ class WidgetGroup(QtCore.QObject):
             self.uncachedWidgets[w] = None
        
     def findWidget(self, name):
-        for w in self.widgetList:
-            if self.widgetList[w] == name:
-                return w
-        return None
+        return next((w for w in self.widgetList if self.widgetList[w] == name), None)
        
     def interface(self, obj):
         t = type(obj)
@@ -198,12 +188,10 @@ class WidgetGroup(QtCore.QObject):
                 self.autoAdd(c)
 
     def acceptsType(self, obj):
-        for c in WidgetGroup.classes:
-            if isinstance(obj, c):
-                return True
-        if hasattr(obj, 'widgetGroupInterface'):
-            return True
-        return False
+        return next(
+            (True for c in WidgetGroup.classes if isinstance(obj, c)),
+            bool(hasattr(obj, 'widgetGroupInterface')),
+        )
 
     def setScale(self, widget, scale):
         val = self.readWidget(widget)

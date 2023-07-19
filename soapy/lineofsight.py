@@ -210,7 +210,6 @@ class LineOfSight(object):
 
         centre = (direction_radians * layer_altitude)
 
-        # If propagating up must account for launch position
         if self.propagation_direction == "up":
             if self.source_altitude == 0:
                 centre += self.launch_position
@@ -227,8 +226,8 @@ class LineOfSight(object):
         y1 = ((centre[1] - meta_pupil_size / 2.) / self.in_pixel_scale) + self.nx_scrn_size / 2.
         y2 = ((centre[1] + meta_pupil_size / 2.) / self.in_pixel_scale) + self.nx_scrn_size / 2.
 
-        logger.debug("Layer Altitude: {}".format(layer_altitude))
-        logger.debug("Coords: x1: {}, x2: {}, y1: {},  y2: {}".format(x1, x2, y1, y2))
+        logger.debug(f"Layer Altitude: {layer_altitude}")
+        logger.debug(f"Coords: x1: {x1}, x2: {x2}, y1: {y1},  y2: {y2}")
 
         return x1, x2, y1, y2
 

@@ -89,15 +89,15 @@ class ColorMap(object):
         """
         if isinstance(mode, basestring):
             mode = self.enumMap[mode.lower()]
-            
+
         if mode == self.QCOLOR:
             pos, color = self.getStops(self.BYTE)
         else:
             pos, color = self.getStops(mode)
-            
+
         # don't need this--np.interp takes care of it.
         #data = np.clip(data, pos.min(), pos.max())
-            
+
         # Interpolate
         # TODO: is griddata faster?
         #          interp = scipy.interpolate.griddata(pos, color, data)
@@ -110,14 +110,12 @@ class ColorMap(object):
         for i in range(color.shape[1]):
             interp[...,i] = np.interp(data, pos, color[:,i])
 
-        # Convert to QColor if requested
-        if mode == self.QCOLOR:
-            if np.isscalar(data):
-                return QtGui.QColor(*interp)
-            else:
-                return [QtGui.QColor(*x) for x in interp]
-        else:
+        if mode != self.QCOLOR:
             return interp
+        if np.isscalar(data):
+            return QtGui.QColor(*interp)
+        else:
+            return [QtGui.QColor(*x) for x in interp]
         
     def mapToQColor(self, data):
         """Convenience function; see :func:`map() <pyqtgraph.ColorMap.map>`."""
@@ -133,32 +131,16 @@ class ColorMap(object):
     
     def getGradient(self, p1=None, p2=None):
         """Return a QLinearGradient object spanning from QPoints p1 to p2."""
-        if p1 == None:
+        if p1 is None:
             p1 = QtCore.QPointF(0,0)
-        if p2 == None:
+        if p2 is None:
             p2 = QtCore.QPointF(self.pos.max()-self.pos.min(),0)
         g = QtGui.QLinearGradient(p1, p2)
-        
+
         pos, color = self.getStops(mode=self.BYTE)
         color = [QtGui.QColor(*x) for x in color]
         g.setStops(zip(pos, color))
-        
-        #if self.colorMode == 'rgb':
-            #ticks = self.listTicks()
-            #g.setStops([(x, QtGui.QColor(t.color)) for t,x in ticks])
-        #elif self.colorMode == 'hsv':  ## HSV mode is approximated for display by interpolating 10 points between each stop
-            #ticks = self.listTicks()
-            #stops = []
-            #stops.append((ticks[0][1], ticks[0][0].color))
-            #for i in range(1,len(ticks)):
-                #x1 = ticks[i-1][1]
-                #x2 = ticks[i][1]
-                #dx = (x2-x1) / 10.
-                #for j in range(1,10):
-                    #x = x1 + dx*j
-                    #stops.append((x, self.getColor(x)))
-                #stops.append((x2, self.getColor(x2)))
-            #g.setStops(stops)
+
         return g
     
     def getColors(self, mode=None):
@@ -218,17 +200,14 @@ class ColorMap(object):
         """
         if isinstance(mode, basestring):
             mode = self.enumMap[mode.lower()]
-        
+
         if alpha is None:
             alpha = self.usesAlpha()
-            
+
         x = np.linspace(start, stop, nPts)
         table = self.map(x, mode)
-        
-        if not alpha:
-            return table[:,:3]
-        else:
-            return table
+
+        return table[:,:3] if not alpha else table
     
     def usesAlpha(self):
         """Return True if any stops have an alpha < 255"""
@@ -251,4 +230,4 @@ class ColorMap(object):
     def __repr__(self):
         pos = repr(self.pos).replace('\n', '')
         color = repr(self.color).replace('\n', '')
-        return "ColorMap(%s, %s)" % (pos, color)
+        return f"ColorMap({pos}, {color})"

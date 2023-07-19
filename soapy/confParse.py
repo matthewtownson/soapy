@@ -89,8 +89,7 @@ class PY_Configurator(object):
                 exec(file_.read(), globals())
         except:
             traceback.print_exc()
-            raise ConfigurationError(
-                    "Error loading config file: {}".format(self.filename))
+            raise ConfigurationError(f"Error loading config file: {self.filename}")
 
         self.configDict = simConfiguration
 
@@ -108,20 +107,16 @@ class PY_Configurator(object):
         self.tel.loadParams(self.configDict["Telescope"])
 
         for nWfs in range(self.sim.nGS):
-            logger.debug("Load LGS {} Params".format(nWfs))
+            logger.debug(f"Load LGS {nWfs} Params")
             lgs = LgsConfig(nWfs)
             lgs.loadParams(self.configDict["LGS"])
 
-            logger.debug("Load WFS {} Params...".format(nWfs))
+            logger.debug(f"Load WFS {nWfs} Params...")
             self.wfss.append(WfsConfig(nWfs))
             self.wfss[nWfs].loadParams(self.configDict["WFS"])
-            if self.wfss[nWfs].lgs:
-                self.wfss[nWfs].lgs = lgs
-            else:
-                self.wfss[nWfs].lgs = None
-
+            self.wfss[nWfs].lgs = lgs if self.wfss[nWfs].lgs else None
         for dm in range(self.sim.nDM):
-            logger.debug("Load DM {} Params".format(dm))
+            logger.debug(f"Load DM {dm} Params")
             self.dms.append(DmConfig(dm))
             self.dms[dm].loadParams(self.configDict["DM"])
 
@@ -129,7 +124,7 @@ class PY_Configurator(object):
         self.recon.loadParams(self.configDict["Reconstructor"])
 
         for sci in range(self.sim.nSci):
-            logger.debug("Load Science {} Params".format(sci))
+            logger.debug(f"Load Science {sci} Params")
             self.scis.append(SciConfig(sci))
             self.scis[sci].loadParams(self.configDict["Science"])
 
@@ -184,14 +179,8 @@ class PY_Configurator(object):
                 pos += theta_n
             gsPos.append(abs(numpy.array(pos)))
 
-        for sci in range(self.sim.nSci):
-            gsPos.append(self.scis[sci].position)
-
-        if len(gsPos)!=0:
-            maxGSPos = numpy.array(gsPos).max()
-        else:
-            maxGSPos = 0
-
+        gsPos.extend(self.scis[sci].position for sci in range(self.sim.nSci))
+        maxGSPos = numpy.array(gsPos).max() if gsPos else 0
         self.sim.scrnSize = numpy.ceil(2*
                 self.sim.pxlScale * self.atmos.scrnHeights.max()
                 * abs(maxGSPos) * ASEC2RAD)+self.sim.simSize
@@ -202,13 +191,10 @@ class PY_Configurator(object):
         if self.sim.scrnSize % 2 != 0:
             self.sim.scrnSize += 1
 
-        # Check if any WFS use physical propogation.
-        # If so, make oversized phase scrns
-        wfsPhys = False
-        for wfs in range(self.sim.nGS):
-            if self.wfss[wfs].propagationMode=="Physical":
-                wfsPhys = True
-                break
+        wfsPhys = any(
+            self.wfss[wfs].propagationMode == "Physical"
+            for wfs in range(self.sim.nGS)
+        )
         if wfsPhys:
             self.sim.scrnSize *= 2
 
@@ -218,19 +204,18 @@ class PY_Configurator(object):
                 wfs.exposureTime = self.sim.loopTime
 
         logger.info("Pixel Scale: {0:.2f} pxls/m".format(self.sim.pxlScale))
-        logger.info("subScreenSize: {:d} simulation pixels".format(int(self.sim.scrnSize)))
+        logger.info("subScreenSize: {:d} simulation pixels".format(self.sim.scrnSize))
 
         # If outer scale is None, set all to really big number. Will introduce bugs when we make
         # telescopes with diameter >1000000s of kilometres
         if self.atmos.L0 is None:
-            self.atmos.L0 = []
-            for scrn in range(self.atmos.scrnNo):
-                self.atmos.L0.append(10e9)
-
+            self.atmos.L0 = [10e9 for _ in range(self.atmos.scrnNo)]
         # Check if SH WFS with 1 subap. Feild stop must be FOV
         for wfs in self.wfss:
             if wfs.nxSubaps==1 and wfs.subapFieldStop==False:
-                logger.warning("Setting WFS:{} to have field stop at sub-ap FOV as it only has 1 sub-aperture".format(wfs))
+                logger.warning(
+                    f"Setting WFS:{wfs} to have field stop at sub-ap FOV as it only has 1 sub-aperture"
+                )
                 wfs.subapFieldStop = True
 
         # If dm diameter is None, set to telescope diameter
@@ -250,26 +235,12 @@ class PY_Configurator(object):
                 }
 
         for w_i, w in enumerate(self.wfss):
-            if w is not None:
-                objs['WFS'][w_i] = dict(w)
-            else:
-                objs['WFS'][w_i] = None
-
-
+            objs['WFS'][w_i] = dict(w) if w is not None else None
         for d_i, d in enumerate(self.dms):
-            if d is not None:
-                objs['DM'][d_i] = dict(d)
-            else:
-                objs['DM'][d_i] = None
-
+            objs['DM'][d_i] = dict(d) if d is not None else None
         for s_i, s in enumerate(self.scis):
-            if s is not None:
-                objs['Science'][s_i] = dict(s)
-            else:
-                objs['Science'][s_i] = None
-
-        for configName, configObj in objs.items():
-            yield configName, configObj
+            objs['Science'][s_i] = dict(s) if s is not None else None
+        yield from objs.items()
 
 
     def __len__(self):
@@ -303,7 +274,7 @@ class YAML_Configurator(PY_Configurator):
         self.tel.loadParams(self.configDict["Telescope"])
 
         for nWfs in range(self.sim.nGS):
-            logger.debug("Load WFS {} Params...".format(nWfs))
+            logger.debug(f"Load WFS {nWfs} Params...")
             wfsDict = self.configDict['WFS'][nWfs]
 
             self.wfss.append(WfsConfig(None))
@@ -319,7 +290,7 @@ class YAML_Configurator(PY_Configurator):
                 self.wfss[nWfs].lgs.loadParams(lgsDict)
 
         for nDm in range(self.sim.nDM):
-            logger.debug("Load DM {} Params".format(nDm))
+            logger.debug(f"Load DM {nDm} Params")
             dmDict = self.configDict['DM'][nDm]
 
             self.dms.append(DmConfig(None))
@@ -330,7 +301,7 @@ class YAML_Configurator(PY_Configurator):
         self.recon.loadParams(self.configDict["Reconstructor"])
 
         for nSci in range(self.sim.nSci):
-            logger.debug("Load Science {} Params".format(nSci))
+            logger.debug(f"Load Science {nSci} Params")
             sciDict = self.configDict['Science'][nSci]
 
             self.scis.append(SciConfig(None))
@@ -364,7 +335,26 @@ class ConfigObj(object):
 
     def loadParams(self, configDict):
 
-        if self.N!=None:
+        if self.N is None:
+            for param in self.requiredParams:
+                try:
+                    self.__setattr__(param, configDict[param])
+                except KeyError:
+                    self.warnAndExit(param)
+                except:
+                    raise ConfigurationError(
+                            "Failed while loading {0}. Check config file.".format(param))
+
+            for param in self.optionalParams:
+                try:
+                    self.__setattr__(param[0], configDict[param[0]])
+                except KeyError:
+                    self.warnAndDefault(param[0], param[1])
+                except:
+                    raise ConfigurationError(
+                            "Failed while loading {0}. Check config file.".format(param))
+
+        else:
             for param in self.requiredParams:
                 try:
                     self.__setattr__(param, configDict[param][self.N])
@@ -388,25 +378,6 @@ class ConfigObj(object):
                 except:
                     raise ConfigurationError(
                             "Failed while loading {0}. Check config file.".format(param))
-        else:
-            for param in self.requiredParams:
-                try:
-                    self.__setattr__(param, configDict[param])
-                except KeyError:
-                    self.warnAndExit(param)
-                except:
-                    raise ConfigurationError(
-                            "Failed while loading {0}. Check config file.".format(param))
-
-            for param in self.optionalParams:
-                try:
-                    self.__setattr__(param[0], configDict[param[0]])
-                except KeyError:
-                    self.warnAndDefault(param[0], param[1])
-                except:
-                    raise ConfigurationError(
-                            "Failed while loading {0}. Check config file.".format(param))
-
         self.calcParams()
 
     def calcParams(self):
@@ -437,7 +408,7 @@ class ConfigObj(object):
         if name in self.allowedAttrs:
             self.__dict__[name] = value
         else:
-            raise ConfigurationError("'{}' Attribute not a configuration parameter".format(name))
+            raise ConfigurationError(f"'{name}' Attribute not a configuration parameter")
 
     def __repr__(self):
         return str(dict(self))
@@ -1162,13 +1133,12 @@ def loadSoapyConfig(configfile):
     file_ext = configfile.split('.')[-1]
 
     # If YAML use yaml configurator
-    if file_ext=='yml' or file_ext=='yaml':
+    if file_ext in ['yml', 'yaml']:
         if YAML:
             config = YAML_Configurator(configfile)
         else:
             raise ImportError("Requires pyyaml for YAML config file")
 
-    # Otherwise, try and execute as python
     else:
         config = PY_Configurator(configfile)
 
