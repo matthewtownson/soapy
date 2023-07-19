@@ -74,7 +74,7 @@ class DM(object):
         mask (ndarray, optional): An array or size (simConfig.simSize, simConfig.simSize) which is 1 at the telescope aperture and 0 else-where. If None then a circle is generated.
     """
 
-    def __init__ (self, soapy_config, n_dm=0, wfss=None, mask=None):
+    def __init__(self, soapy_config, n_dm=0, wfss=None, mask=None):
 
         # Sort out some required attributes
         self.soapy_config = soapy_config
@@ -115,16 +115,18 @@ class DM(object):
         self.actCoeffs = numpy.zeros((self.n_acts))
 
         # Sort out which WFS(s) observes the DM (for iMat making)
-        if self.dmConfig.wfs!=None:
+        if self.dmConfig.wfs is None:
+            self.wfss = wfss
+
+        else:
             try:
                 # Make sure the specifed WFS actually exists
                 self.wfss = [wfss[self.dmConfig.wfs]]
                 self.wfs = self.wfss[0]
             except KeyError:
-                raise KeyError("DM attached to WFS {}, but that WFS is not specifed in config".format(self.dmConfig.wfs))
-        else:
-            self.wfss = wfss
-
+                raise KeyError(
+                    f"DM attached to WFS {self.dmConfig.wfs}, but that WFS is not specifed in config"
+                )
         logger.info("Making DM Influence Functions...")
         self.makeIMatShapes()
 
@@ -185,21 +187,18 @@ class DM(object):
         if dm_size == self.scrn_size:
             self.dm_screen = self.dm_shape
 
-        else:
-            if dm_size>self.scrn_size:
-                coord = int(round(dm_size/2. - self.scrn_size/2.))
-                self.dm_screen[:] = self.dm_shape[coord: -coord, coord: -coord]
+        elif dm_size>self.scrn_size:
+            coord = int(round(dm_size/2. - self.scrn_size/2.))
+            self.dm_screen[:] = self.dm_shape[coord: -coord, coord: -coord]
 
-            else:
-                pad = int(round((self.scrn_size - dm_size)/2))
-                self.dm_screen[pad:-pad, pad:-pad] = self.dm_shape
+        else:
+            pad = int(round((self.scrn_size - dm_size)/2))
+            self.dm_screen[pad:-pad, pad:-pad] = self.dm_shape
 
         return self.dm_screen
 
     def makeDMFrame(self, actCoeffs):
-        dm_shape = (self.iMatShapes.T*actCoeffs.T).T.sum(0)
-
-        return dm_shape
+        return (self.iMatShapes.T*actCoeffs.T).T.sum(0)
 
     def reset(self):
         self.dm_shape[:] = 0
@@ -248,13 +247,13 @@ class CustomShapes(DM):
             with open(self.config.dmShapesFilename, "rb") as shapes_file:
                 dmShape = fits.getdata(shapes_file)
         except:
-            raise ValueError("Can't open fits file %s" % self.config.dmShapesFilename)
+            raise ValueError(f"Can't open fits file {self.config.dmShapesFilename}")
 
         assert dmShape.shape[0] >= int(self.n_acts), 'Not enough shapes in DM shape file'
         dmShape = dmShape[:int(self.n_acts), :, :]
 
         if (dmShape.shape[1] != int(self.nx_dm_elements)) or\
-                (dmShape.shape[2] != int(self.nx_dm_elements)):
+                    (dmShape.shape[2] != int(self.nx_dm_elements)):
             logger.warning("Interpolation custom DM shapes of size "
                            "({0:1.0f}, {1:1.0f}) to size of "
                            "({2:1.0f}, {2:1.0f})".format(dmShape.shape[1],
@@ -348,8 +347,7 @@ class Piezo(DM):
         self.spcing = self.nx_dm_elements/float(xActs)
 
         for x in xrange(xActs):
-            for y in xrange(xActs):
-                activeActs.append([x,y])
+            activeActs.extend([x,y] for y in xrange(xActs))
         self.valid_act_coords = numpy.array(activeActs)
         self.xActs = xActs
         return self.valid_act_coords.shape[0]
@@ -392,16 +390,15 @@ class Piezo(DM):
         if dmSize == self.scrn_size:
             self.dm_screen = self.dm_shape
 
-        else:
-            if dmSize > self.scrn_size:
-                coord = int(round(dmSize/2. - self.scrn_size/2.))
-                shapes = shapes[:, coord:-coord, coord:-coord].astype("float32")
+        elif dmSize > self.scrn_size:
+            coord = int(round(dmSize/2. - self.scrn_size/2.))
+            shapes = shapes[:, coord:-coord, coord:-coord].astype("float32")
 
-            else:
-                pad = int(round((self.scrn_size - dmSize)/2))
-                shapes = numpy.pad(
-                        shapes, ((0, 0), (pad,pad), (pad,pad)), mode="constant"
-                        ).astype("float32")
+        else:
+            pad = int(round((self.scrn_size - dmSize)/2))
+            shapes = numpy.pad(
+                    shapes, ((0, 0), (pad,pad), (pad,pad)), mode="constant"
+                    ).astype("float32")
 
         self.iMatShapes = shapes
 
@@ -505,12 +502,9 @@ class FastPiezo(Piezo):
         # Add space around edge for 1 extra act to avoid edge effects
         actGrid = numpy.pad(self.actGrid, ((1,1), (1,1)), mode="constant")
 
-        # Interpolate to previously determined "dmSize"
-        dmShape = interp.zoom_rbs(
-                actGrid, self.dmSize, order=self.dmConfig.interpOrder)
-
-
-        return dmShape
+        return interp.zoom_rbs(
+            actGrid, self.dmSize, order=self.dmConfig.interpOrder
+        )
 
     @property
     def valid_actuators(self):

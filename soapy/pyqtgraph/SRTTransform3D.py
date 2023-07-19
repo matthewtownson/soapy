@@ -123,7 +123,7 @@ class SRTTransform3D(Transform3D):
         m = self.matrix().reshape(4,4)
         ## translation is 4th column
         self._state['pos'] = m[:3,3]
-        
+
         ## scale is vector-length of first three columns
         scale = (m[:3,:3]**2).sum(axis=0)**0.5
         ## see whether there is an inversion
@@ -131,38 +131,38 @@ class SRTTransform3D(Transform3D):
         if np.dot(z, m[2, :3]) < 0:
             scale[1] *= -1  ## doesn't really matter which axis we invert
         self._state['scale'] = scale
-        
+
         ## rotation axis is the eigenvector with eigenvalue=1
         r = m[:3, :3] / scale[np.newaxis, :]
         try:
             evals, evecs = numpy.linalg.eig(r)
         except:
-            print("Rotation matrix: %s" % str(r))
-            print("Scale: %s" % str(scale))
-            print("Original matrix: %s" % str(m))
+            print(f"Rotation matrix: {str(r)}")
+            print(f"Scale: {str(scale)}")
+            print(f"Original matrix: {str(m)}")
             raise
         eigIndex = np.argwhere(np.abs(evals-1) < 1e-6)
         if len(eigIndex) < 1:
-            print("eigenvalues: %s" % str(evals))
-            print("eigenvectors: %s" % str(evecs))
-            print("index: %s, %s" % (str(eigIndex), str(evals-1)))
+            print(f"eigenvalues: {str(evals)}")
+            print(f"eigenvectors: {str(evecs)}")
+            print(f"index: {str(eigIndex)}, {str(evals - 1)}")
             raise Exception("Could not determine rotation axis.")
         axis = evecs[:,eigIndex[0,0]].real
         axis /= ((axis**2).sum())**0.5
         self._state['axis'] = axis
-        
+
         ## trace(r) == 2 cos(angle) + 1, so:
         cos = (r.trace()-1)*0.5  ## this only gets us abs(angle)
-        
+
         ## The off-diagonal values can be used to correct the angle ambiguity, 
         ## but we need to figure out which element to use:
         axisInd = np.argmax(np.abs(axis))
         rInd,sign = [((1,2), -1), ((0,2), 1), ((0,1), -1)][axisInd]
-        
+
         ## Then we have r-r.T = sin(angle) * 2 * sign * axis[axisInd];
         ## solve for sin(angle)
         sin = (r-r.T)[rInd] / (2. * sign * axis[axisInd])
-        
+
         ## finally, we get the complete angle from arctan(sin/cos)
         self._state['angle'] = np.arctan2(sin, cos) * 180 / np.pi
         if self._state['angle'] == 0:

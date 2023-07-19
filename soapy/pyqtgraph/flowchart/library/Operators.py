@@ -35,7 +35,9 @@ class BinOpNode(Node):
             fn = getattr(args['A'], self.fn)
         out = fn(args['B'])
         if out is NotImplemented:
-            raise Exception("Operation %s not implemented between %s and %s" % (fn, str(type(args['A'])), str(type(args['B']))))
+            raise Exception(
+                f"Operation {fn} not implemented between {str(type(args['A']))} and {str(type(args['B']))}"
+            )
         #print "     ", fn, out
         return {'Out': out}
 

@@ -54,28 +54,30 @@ class ExceptionHandler(object):
         recursionLimit = sys.getrecursionlimit()
         try:
             sys.setrecursionlimit(recursionLimit+100)
-        
-        
+
+
             ## call original exception handler first (prints exception)
             global original_excepthook, callbacks, clear_tracebacks
             try:
-                print("===== %s =====" % str(time.strftime("%Y.%m.%d %H:%m:%S", time.localtime(time.time()))))
+                print(
+                    f'===== {str(time.strftime("%Y.%m.%d %H:%m:%S", time.localtime(time.time())))} ====='
+                )
             except Exception:
                 sys.stderr.write("Warning: stdout is broken! Falling back to stderr.\n")
                 sys.stdout = sys.stderr
 
             ret = original_excepthook(*args)
-                
+
             for cb in callbacks:
                 try:
                     cb(*args)
                 except Exception:
                     print("   --------------------------------------------------------------")
-                    print("      Error occurred during exception callback %s" % str(cb))
+                    print(f"      Error occurred during exception callback {str(cb)}")
                     print("   --------------------------------------------------------------")
                     traceback.print_exception(*sys.exc_info())
-                
-            
+
+
             ## Clear long-term storage of last traceback to prevent memory-hogging.
             ## (If an exception occurs while a lot of data is present on the stack, 
             ## such as when loading large files, the data would ordinarily be kept
@@ -83,7 +85,7 @@ class ExceptionHandler(object):
             ## as soon as possible.)
             if clear_tracebacks is True:
                 sys.last_traceback = None
-        
+
         finally:
             sys.setrecursionlimit(recursionLimit)            
             

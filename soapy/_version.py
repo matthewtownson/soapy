@@ -34,19 +34,19 @@ def run_command(commands, args, cwd=None, verbose=False, hide_stderr=False):
             if e.errno == errno.ENOENT:
                 continue
             if verbose:
-                print("unable to run %s" % args[0])
+                print(f"unable to run {args[0]}")
                 print(e)
             return None
     else:
         if verbose:
-            print("unable to find command, tried %s" % (commands,))
+            print(f"unable to find command, tried {commands}")
         return None
     stdout = p.communicate()[0].strip()
     if sys.version >= '3':
         stdout = stdout.decode()
     if p.returncode != 0:
         if verbose:
-            print("unable to run %s (error)" % args[0])
+            print(f"unable to run {args[0]} (error)")
         return None
     return stdout
 
@@ -57,8 +57,9 @@ def versions_from_parentdir(parentdir_prefix, root, verbose=False):
     dirname = os.path.basename(root)
     if not dirname.startswith(parentdir_prefix):
         if verbose:
-            print("guessing rootdir is '%s', but '%s' doesn't start with prefix '%s'" %
-                  (root, dirname, parentdir_prefix))
+            print(
+                f"guessing rootdir is '{root}', but '{dirname}' doesn't start with prefix '{parentdir_prefix}'"
+            )
         return None
     return {"version": dirname[len(parentdir_prefix):], "full": ""}
 
@@ -69,17 +70,14 @@ def git_get_keywords(versionfile_abs):
     # _version.py.
     keywords = {}
     try:
-        f = open(versionfile_abs,"r")
-        for line in f.readlines():
-            if line.strip().startswith("git_refnames ="):
-                mo = re.search(r'=\s*"(.*)"', line)
-                if mo:
-                    keywords["refnames"] = mo.group(1)
-            if line.strip().startswith("git_full ="):
-                mo = re.search(r'=\s*"(.*)"', line)
-                if mo:
-                    keywords["full"] = mo.group(1)
-        f.close()
+        with open(versionfile_abs,"r") as f:
+            for line in f:
+                if line.strip().startswith("git_refnames ="):
+                    if mo := re.search(r'=\s*"(.*)"', line):
+                        keywords["refnames"] = mo[1]
+                if line.strip().startswith("git_full ="):
+                    if mo := re.search(r'=\s*"(.*)"', line):
+                        keywords["full"] = mo[1]
     except EnvironmentError:
         pass
     return keywords
@@ -92,11 +90,11 @@ def git_versions_from_keywords(keywords, tag_prefix, verbose=False):
         if verbose:
             print("keywords are unexpanded, not using")
         return {} # unexpanded, so not in an unpacked git-archive tarball
-    refs = set([r.strip() for r in refnames.strip("()").split(",")])
+    refs = {r.strip() for r in refnames.strip("()").split(",")}
     # starting in git-1.8.3, tags are listed as "tag: foo-1.0" instead of
     # just "foo-1.0". If we see a "tag: " prefix, prefer those.
     TAG = "tag: "
-    tags = set([r[len(TAG):] for r in refs if r.startswith(TAG)])
+    tags = {r[len(TAG):] for r in refs if r.startswith(TAG)}
     if not tags:
         # Either we're using git < 1.8.3, or there really are no tags. We use
         # a heuristic: assume all version tags have a digit. The old git %d
@@ -105,17 +103,17 @@ def git_versions_from_keywords(keywords, tag_prefix, verbose=False):
         # between branches and tags. By ignoring refnames without digits, we
         # filter out many common branch names like "release" and
         # "stabilization", as well as "HEAD" and "master".
-        tags = set([r for r in refs if re.search(r'\d', r)])
+        tags = {r for r in refs if re.search(r'\d', r)}
         if verbose:
-            print("discarding '%s', no digits" % ",".join(refs-tags))
+            print(f"""discarding '{",".join(refs - tags)}', no digits""")
     if verbose:
-        print("likely tags: %s" % ",".join(sorted(tags)))
+        print(f'likely tags: {",".join(sorted(tags))}')
     for ref in sorted(tags):
         # sorting will prefer e.g. "2.0" over "2.0rc1"
         if ref.startswith(tag_prefix):
             r = ref[len(tag_prefix):]
             if verbose:
-                print("picking %s" % r)
+                print(f"picking {r}")
             return { "version": r,
                      "full": keywords["full"].strip() }
     # no suitable tags, so we use the full revision id
@@ -133,19 +131,17 @@ def git_versions_from_vcs(tag_prefix, root, verbose=False):
 
     if not os.path.exists(os.path.join(root, ".git")):
         if verbose:
-            print("no .git in %s" % root)
+            print(f"no .git in {root}")
         return {}
 
-    GITS = ["git"]
-    if sys.platform == "win32":
-        GITS = ["git.cmd", "git.exe"]
+    GITS = ["git.cmd", "git.exe"] if sys.platform == "win32" else ["git"]
     stdout = run_command(GITS, ["describe", "--tags", "--dirty", "--always"],
                          cwd=root)
     if stdout is None:
         return {}
     if not stdout.startswith(tag_prefix):
         if verbose:
-            print("tag '%s' doesn't start with prefix '%s'" % (stdout, tag_prefix))
+            print(f"tag '{stdout}' doesn't start with prefix '{tag_prefix}'")
         return {}
     tag = stdout[len(tag_prefix):]
     stdout = run_command(GITS, ["rev-parse", "HEAD"], cwd=root)
@@ -164,8 +160,7 @@ def get_versions(default={"version": "unknown", "full": ""}, verbose=False):
     # case we can only use expanded keywords.
 
     keywords = { "refnames": git_refnames, "full": git_full }
-    ver = git_versions_from_keywords(keywords, tag_prefix, verbose)
-    if ver:
+    if ver := git_versions_from_keywords(keywords, tag_prefix, verbose):
         return ver
 
     try:
@@ -173,7 +168,7 @@ def get_versions(default={"version": "unknown", "full": ""}, verbose=False):
         # versionfile_source is the relative path from the top of the source
         # tree (where the .git directory might live) to this file. Invert
         # this to find the root from __file__.
-        for i in range(len(versionfile_source.split(os.sep))):
+        for _ in range(len(versionfile_source.split(os.sep))):
             root = os.path.dirname(root)
     except NameError:
         return default

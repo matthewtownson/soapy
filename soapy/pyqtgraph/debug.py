@@ -80,8 +80,8 @@ class Tracer(object):
             if instance is not None:
                 cls = getattr(instance, '__class__', None)
                 if cls is not None:
-                    funcname = cls.__name__ + "." + funcname
-        return "%s: %s %s: %s" % (callline, filename, lineno, funcname)
+                    funcname = f"{cls.__name__}.{funcname}"
+        return f"{callline}: {filename} {lineno}: {funcname}"
 
 def warnOnException(func):
     """Decorator which catches/ignores exceptions and prints a stack trace."""
@@ -107,7 +107,7 @@ def getExc(indent=4, prefix='|  ', skip=1):
 def printExc(msg='', indent=4, prefix='|'):
     """Print an error message followed by an indented exception backtrace
     (This function is intended to be called within except: blocks)"""
-    exc = getExc(indent, prefix + '  ', skip=2)
+    exc = getExc(indent, f'{prefix}  ', skip=2)
     print("[%s]  %s\n" % (time.strftime("%H:%M:%S"), msg))
     print(" "*indent + prefix + '='*30 + '>>')
     print(exc)
@@ -157,22 +157,13 @@ def findRefPath(startObj, endObj, maxLen=8, restart=True, seen={}, path=None, ig
     gc.collect()
     newRefs = [r for r in gc.get_referrers(endObj) if id(r) not in ignore]
     ignore[id(newRefs)] = None
-    #fo = allFrameObjs()
-    #newRefs = []
-    #for r in gc.get_referrers(endObj):
-        #try:
-            #if r not in fo:
-                #newRefs.append(r)
-        #except:
-            #newRefs.append(r)            
-        
     for r in newRefs:
         #print prefix+"->"+str(type(r))
         if type(r).__name__ in ['frame', 'function', 'listiterator']:
             #print prefix+"  FRAME"
             continue
         try:
-            if any([r is x for x in  path]):
+            if any(r is x for x in path):
                 #print prefix+"  LOOP", objChainString([r]+path)
                 continue
         except:
@@ -197,19 +188,16 @@ def findRefPath(startObj, endObj, maxLen=8, restart=True, seen={}, path=None, ig
                     print(refPathString(p+path))
         except KeyError:
             pass
-        
+
         ignore[id(tree)] = None
         if tree is None:
             tree = findRefPath(startObj, r, maxLen-1, restart=False, path=[r]+path, ignore=ignore)
             seen[id(r)] = [maxLen, tree]
-        ## integrate any returned results
         if len(tree) == 0:
             #print prefix+"  EMPTY TREE"
             continue
-        else:
-            for p in tree:
-                refs.append(p+[r])
-        #seen[id(r)] = [maxLen, refs]
+        refs.extend(p+[r] for p in tree)
+            #seen[id(r)] = [maxLen, refs]
     return refs
 
 
@@ -224,19 +212,16 @@ def objString(obj):
             else:
                 return "<dict {%s}>" % (",".join(list(obj.keys())))
         elif isinstance(obj, str):
-            if len(obj) > 50:
-                return '"%s..."' % obj[:50]
-            else:
-                return obj[:]
+            return f'"{obj[:50]}..."' if len(obj) > 50 else obj[:]
         elif isinstance(obj, ndarray):
-            return "<ndarray %s %s>" % (str(obj.dtype), str(obj.shape))
+            return f"<ndarray {str(obj.dtype)} {str(obj.shape)}>"
         elif hasattr(obj, '__len__'):
             if len(obj) > 5:
-                return "<%s [%s,...]>" % (type(obj).__name__, ",".join([type(o).__name__ for o in obj[:5]]))
+                return f'<{type(obj).__name__} [{",".join([type(o).__name__ for o in obj[:5]])},...]>'
             else:
-                return "<%s [%s]>" % (type(obj).__name__, ",".join([type(o).__name__ for o in obj]))
+                return f'<{type(obj).__name__} [{",".join([type(o).__name__ for o in obj])}]>'
         else:
-            return "<%s %s>" % (type(obj).__name__, obj.__class__.__name__)
+            return f"<{type(obj).__name__} {obj.__class__.__name__}>"
     except:
         return str(type(obj))
 
@@ -251,8 +236,8 @@ def refPathString(chain):
         o1 = chain[i-1]
         o2 = chain[i]
         cont = False
-        if isinstance(o1, list) or isinstance(o1, tuple):
-            if any([o2 is x for x in o1]):
+        if isinstance(o1, (list, tuple)):
+            if any(o2 is x for x in o1):
                 s += "[%d]" % o1.index(o2)
                 continue
         #print "  not list"
@@ -264,28 +249,22 @@ def refPathString(chain):
             o3 = chain[i]
             for k in o2:
                 if o2[k] is o3:
-                    s += '.%s' % k
+                    s += f'.{k}'
                     cont = True
                     continue
         #print "  not __dict__"
         if isinstance(o1, dict):
             try:
                 if o2 in o1:
-                    s += "[key:%s]" % objString(o2)
+                    s += f"[key:{objString(o2)}]"
                     continue
             except TypeError:
                 pass
             for k in o1:
                 if o1[k] is o2:
-                    s += "[%s]" % objString(k)
+                    s += f"[{objString(k)}]"
                     cont = True
                     continue
-        #print "  not dict"
-        #for k in dir(o1):  ## Not safe to request attributes like this.
-            #if getattr(o1, k) is o2:
-                #s += ".%s" % k
-                #cont = True
-                #continue
         #print "  not attr"
         if cont:
             continue
@@ -299,69 +278,56 @@ def objectSize(obj, ignore=None, verbose=False, depth=0, recursive=False):
     ignoreTypes = ['MethodType', 'UnboundMethodType', 'BuiltinMethodType', 'FunctionType', 'BuiltinFunctionType']
     ignoreTypes = [getattr(types, key) for key in ignoreTypes if hasattr(types, key)]
     ignoreRegex = re.compile('(method-wrapper|Flag|ItemChange|Option|Mode)')
-    
-    
+
+
     if ignore is None:
         ignore = {}
-        
+
     indent = '  '*depth
-    
+
     try:
         hash(obj)
         hsh = obj
     except:
         hsh = "%s:%d" % (str(type(obj)), id(obj))
-        
+
     if hsh in ignore:
         return 0
     ignore[hsh] = 1
-    
+
     try:
         size = sys.getsizeof(obj)
     except TypeError:
         size = 0
-        
+
     if isinstance(obj, ndarray):
         try:
             size += len(obj.data)
         except:
             pass
-            
-        
+
+
     if recursive:
         if type(obj) in [list, tuple]:
             if verbose:
-                print(indent+"list:")
+                print(f"{indent}list:")
             for o in obj:
                 s = objectSize(o, ignore=ignore, verbose=verbose, depth=depth+1)
                 if verbose:
-                    print(indent+'  +', s)
+                    print(f'{indent}  +', s)
                 size += s
         elif isinstance(obj, dict):
             if verbose:
-                print(indent+"list:")
+                print(f"{indent}list:")
             for k in obj:
                 s = objectSize(obj[k], ignore=ignore, verbose=verbose, depth=depth+1)
                 if verbose:
-                    print(indent+'  +', k, s)
+                    print(f'{indent}  +', k, s)
                 size += s
-        #elif isinstance(obj, QtCore.QObject):
-            #try:
-                #childs = obj.children()
-                #if verbose:
-                    #print indent+"Qt children:"
-                #for ch in childs:
-                    #s = objectSize(obj, ignore=ignore, verbose=verbose, depth=depth+1)
-                    #size += s
-                    #if verbose:
-                        #print indent + '  +', ch.objectName(), s
-                    
-            #except:
-                #pass
     #if isinstance(obj, types.InstanceType):
         gc.collect()
         if verbose:
-            print(indent+'attrs:')
+            print(f'{indent}attrs:')
         for k in dir(obj):
             if k in ['__dict__']:
                 continue
@@ -371,20 +337,15 @@ def objectSize(obj, ignore=None, verbose=False, depth=0, recursive=False):
             strtyp = str(type(o))
             if ignoreRegex.search(strtyp):
                 continue
-            #if isinstance(o, types.ObjectType) and strtyp == "<type 'method-wrapper'>":
-                #continue
-            
-            #if verbose:
-                #print indent, k, '?'
             refs = [r for r in gc.get_referrers(o) if type(r) != types.FrameType]
             if len(refs) == 1:
                 s = objectSize(o, ignore=ignore, verbose=verbose, depth=depth+1)
                 size += s
                 if verbose:
-                    print(indent + "  +", k, s)
-            #else:
-                #if verbose:
-                    #print indent + '  -', k, len(refs)
+                    print(f"{indent}  +", k, s)
+                    #else:
+                        #if verbose:
+                            #print indent + '  -', k, len(refs)
     return size
 
 class GarbageWatcher(object):
@@ -481,7 +442,7 @@ class Profiler(object):
         """
         if disabled is True or (disabled == 'env' and len(cls._profilers) == 0):
             return cls._disabledProfiler
-                        
+
         # determine the qualified name of the caller function
         caller_frame = sys._getframe(1)
         try:
@@ -490,7 +451,7 @@ class Profiler(object):
             qualifier = caller_frame.f_globals["__name__"].split(".", 1)[1]
         else: # we are in a method
             qualifier = caller_object_type.__name__
-        func_qualname = qualifier + "." + caller_frame.f_code.co_name
+        func_qualname = f"{qualifier}.{caller_frame.f_code.co_name}"
         if disabled == 'env' and func_qualname not in cls._profilers: # don't do anything
             return cls._disabledProfiler
         # create an actual profiling object
@@ -501,7 +462,7 @@ class Profiler(object):
         obj._markCount = 0
         obj._finished = False
         obj._firstTime = obj._lastTime = ptime.time()
-        obj._newMsg("> Entering " + obj._name)
+        obj._newMsg(f"> Entering {obj._name}")
         return obj
 
     def __call__(self, msg=None):
@@ -567,7 +528,7 @@ def profile(code, name='profile_run', sort='cumulative', num=30):
 # into olist, using seen to track
 # already processed objects.
 def _getr(slist, olist, first=True):
-    i = 0 
+    i = 0
     for e in slist:
         
         oid = id(e)
@@ -577,8 +538,7 @@ def _getr(slist, olist, first=True):
         olist[oid] = e
         if first and (i%1000) == 0:
             gc.collect()
-        tl = gc.get_referents(e)
-        if tl:
+        if tl := gc.get_referents(e):
             _getr(tl, olist, first=False)
         i += 1        
 # The public function.
@@ -677,7 +637,7 @@ class ObjTracker(object):
         Print a set of reports for created, deleted, and persistent objects
         """
         refs, count, objs = self.collect()   ## refs contains the list of ALL objects
-        
+
         ## Which refs have disappeared since call to start()  (these are only displayed once, then forgotten.)
         delRefs = {}
         for i in list(self.startRefs.keys()):
@@ -691,7 +651,7 @@ class ObjTracker(object):
                 del self.newRefs[i]
                 self.forgetRef(delRefs[i])
         #print "deleted:", len(delRefs)
-                
+
         ## Which refs have appeared since call to start() or diff()
         persistentRefs = {}      ## created since start(), but before last diff()
         createRefs = {}          ## created since last diff()
@@ -702,7 +662,7 @@ class ObjTracker(object):
                 else:
                     persistentRefs[o] = refs[o]      ## object has been created since start(), but before last diff() (persistent)
         #print "new:", len(newRefs)
-                
+
         ## self.newRefs holds the entire set of objects created since start()
         for r in self.newRefs:
             self.forgetRef(self.newRefs[r])
@@ -712,12 +672,12 @@ class ObjTracker(object):
         for r in self.newRefs:
             self.rememberRef(self.newRefs[r])
         #print "created:", len(createRefs)
-        
+
         ## self.persistentRefs holds all objects considered persistent.
         self.persistentRefs.clear()
         self.persistentRefs.update(persistentRefs)
-        
-                
+
+
         print("----------- Count changes since start: ----------")
         c1 = count.copy()
         for k in self.startCount:
@@ -728,8 +688,8 @@ class ObjTracker(object):
             if c1[t] == 0:
                 continue
             num = "%d" % c1[t]
-            print("  " + num + " "*(10-len(num)) + str(t))
-            
+            print(f"  {num}" + " "*(10-len(num)) + str(t))
+
         print("-----------  %d Deleted since last diff: ------------" % len(delRefs))
         self.report(delRefs, objs, **kargs)
         print("-----------  %d Created since last diff: ------------" % len(createRefs))
@@ -808,15 +768,12 @@ class ObjTracker(object):
     def report(self, refs, allobjs=None, showIDs=False):
         if allobjs is None:
             allobjs = get_all_objects()
-        
+
         count = {}
         rev = {}
         for oid in refs:
             obj = self.lookup(oid, refs[oid], allobjs)
-            if obj is None:
-                typ = "[del] " + self.objTypes[oid]
-            else:
-                typ = typeStr(obj)
+            typ = f"[del] {self.objTypes[oid]}" if obj is None else typeStr(obj)
             if typ not in rev:
                 rev[typ] = []
             rev[typ].append(oid)
@@ -824,7 +781,7 @@ class ObjTracker(object):
             count[typ] =  [c[0]+1, c[1]+objectSize(obj)]
         typs = list(count.keys())
         typs.sort(key=lambda a: count[a][1])
-        
+
         for t in typs:
             line = "  %d\t%d\t%s" % (count[t][0], count[t][1], t)
             if showIDs:
@@ -834,12 +791,12 @@ class ObjTracker(object):
     def findTypes(self, refs, regex):
         allObjs = get_all_objects()
         ids = {}
-        objs = []
         r = re.compile(regex)
-        for k in refs:
-            if r.search(self.objTypes[k]):
-                objs.append(self.lookup(k, refs[k], allObjs))
-        return objs
+        return [
+            self.lookup(k, refs[k], allObjs)
+            for k in refs
+            if r.search(self.objTypes[k])
+        ]
         
 
     
@@ -863,7 +820,7 @@ def describeObj(obj, depth=4, path=None, ignore=None):
         if id(ref) in ignore:
             continue
         if id(ref) in list(map(id, path)):
-            print("Cyclic reference: " + refPathString([ref]+path))
+            print(f"Cyclic reference: {refPathString([ref] + path)}")
             printed = True
             continue
         newPath = [ref]+path
@@ -871,12 +828,11 @@ def describeObj(obj, depth=4, path=None, ignore=None):
             refStr = refPathString(newPath)
             if '[_]' not in refStr:           ## ignore '_' references generated by the interactive shell
                 print(refStr)
-            printed = True
         else:
             describeObj(ref, depth, newPath, ignore)
-            printed = True
+        printed = True
     if not printed:
-        print("Dead end: " + refPathString(path))
+        print(f"Dead end: {refPathString(path)}")
         
     
     
@@ -884,7 +840,7 @@ def typeStr(obj):
     """Create a more useful type string by making <instance> types report their class."""
     typ = type(obj)
     if typ == getattr(types, 'InstanceType', None):
-        return "<instance of %s>" % obj.__class__.__name__
+        return f"<instance of {obj.__class__.__name__}>"
     else:
         return str(typ)
     
@@ -920,7 +876,7 @@ def searchRefs(obj, *args):
         
         #fo = allFrameObjs()
         #refs = [r for r in refs if r not in fo]
-        
+
         if type(a) is int:
             obj = refs[a]
             gc.collect()
@@ -933,10 +889,8 @@ def searchRefs(obj, *args):
             print(list(map(id, refs)))
         elif a == 'l':
             def slen(o):
-                if hasattr(o, '__len__'):
-                    return len(o)
-                else:
-                    return None
+                return len(o) if hasattr(o, '__len__') else None
+
             print(list(map(slen, refs)))
         elif a == 'o':
             print(obj)
@@ -950,8 +904,7 @@ def allFrameObjs():
     f = sys._getframe()
     objs = []
     while f is not None:
-        objs.append(f)
-        objs.append(f.f_code)
+        objs.extend((f, f.f_code))
         #objs.append(f.f_locals)
         #objs.append(f.f_globals)
         #objs.append(f.f_builtins)
@@ -982,7 +935,7 @@ def listRedundantModules():
         if mfile[-1] == 'c':
             mfile = mfile[:-1]
         if mfile in mods:
-            print("module at %s has 2 names: %s, %s" % (mfile, name, mods[mfile]))
+            print(f"module at {mfile} has 2 names: {name}, {mods[mfile]}")
         else:
             mods[mfile] = name
             
@@ -1020,18 +973,17 @@ def qObjectReport(verbose=False):
         if isinstance(obj, QtCore.QObject):
             oid = id(obj)
             if oid not in QObjCache:
-                QObjCache[oid] = typeStr(obj) + "  " + obj.objectName()
+                QObjCache[oid] = f"{typeStr(obj)}  {obj.objectName()}"
                 try:
-                    QObjCache[oid] += "  " + obj.parent().objectName()
-                    QObjCache[oid] += "  " + obj.text()
+                    QObjCache[oid] += f"  {obj.parent().objectName()}"
+                    QObjCache[oid] += f"  {obj.text()}"
                 except:
                     pass
-            print("check obj", oid, str(QObjCache[oid]))
+            print("check obj", oid, QObjCache[oid])
             if obj.parent() is None:
                 walkQObjectTree(obj, count, verbose)
-            
-    typs = list(count.keys())
-    typs.sort()
+
+    typs = sorted(count.keys())
     for t in typs:
         print(count[t], "\t", t)
         
@@ -1071,21 +1023,18 @@ def pretty(data, indent=''):
     This function is a bit better than pprint for displaying OrderedDicts.
     """
     ret = ""
-    ind2 = indent + "    "
+    ind2 = f"{indent}    "
     if isinstance(data, dict):
         ret = indent+"{\n"
         for k, v in data.iteritems():
             ret += ind2 + repr(k) + ":  " + pretty(v, ind2).strip() + "\n"
         ret += indent+"}\n"
-    elif isinstance(data, list) or isinstance(data, tuple):
+    elif isinstance(data, (list, tuple)):
         s = repr(data)
         if len(s) < 40:
             ret += indent + s
         else:
-            if isinstance(data, list):
-                d = '[]'
-            else:
-                d = '()'
+            d = '[]' if isinstance(data, list) else '()'
             ret = indent+d[0]+"\n"
             for i, v in enumerate(data):
                 ret += ind2 + str(i) + ":  " + pretty(v, ind2).strip() + "\n"

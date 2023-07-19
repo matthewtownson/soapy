@@ -90,7 +90,7 @@ class FFT(object):
         if loggingLevel:
             logger.setLoggingLevel(loggingLevel)
 
-        if mode=="gpu" or mode=="gpu_ocl" or mode=="gpu_cuda":
+        if mode in ["gpu", "gpu_ocl", "gpu_cuda"]:
             if mode == "gpu":
                 mode = "gpu_ocl"
             if REIKNA_AVAILABLE:
@@ -133,11 +133,11 @@ class FFT(object):
 
 
         if self.FFTMODE=="gpu":
-            if direction=="FORWARD":
-                self.inverse=1
-            elif direction=="BACKWARD":
+            if direction == "BACKWARD":
                 self.inverse=0
 
+            elif direction == "FORWARD":
+                self.inverse=1
             self.inputData = numpy.zeros( inputSize, dtype=dtype)
             inputData_dev = self.reikna_thread.to_device(self.inputData)
             self.outputData_dev = self.reikna_thread.array(inputSize,
@@ -149,7 +149,7 @@ class FFT(object):
             logger.info("Done!")
 
         if self.FFTMODE=="pyfftw":
-            if THREADS==None:
+            if THREADS is None:
                 THREADS=cpu_count()
 
             #fftw_FLAGS Set the optimisation level of fftw3,
@@ -165,7 +165,7 @@ class FFT(object):
             self.outputData[:] = numpy.zeros( inputSize,dtype=dtype)
 
             logger.info("Generating fftw3 plan....\nIf this takes too long, change fftw_FLAGS.")
-            logger.debug("currently set to: {})".format(fftw_FLAGS))
+            logger.debug(f"currently set to: {fftw_FLAGS})")
             if direction=="FORWARD":
                 self.fftwPlan = pyfftw.FFTW(self.inputData,self.outputData,
                                 axes=axes, threads=THREADS,flags=fftw_FLAGS)
@@ -181,8 +181,7 @@ class FFT(object):
             self.direction=direction
             self.inputData = numpy.zeros(inputSize,dtype=dtype)
             self.size=[]
-            for i in range(len(self.axes)):
-                self.size.append(inputSize[self.axes[i]])
+            self.size.extend(inputSize[self.axes[i]] for i in range(len(self.axes)))
 
 
     def __call__(self, data=None):
@@ -204,11 +203,8 @@ class FFT(object):
 
             if data is not None:
                 self.inputData[:] = data
-            if self.direction=="FORWARD":
+            if self.direction in ["FORWARD", "BACKWARD"]:
                 return self.fftwPlan()
-            elif self.direction=="BACKWARD":
-                return self.fftwPlan()
-
         elif self.FFTMODE=="gpu":
 
             if data is not None:
@@ -247,7 +243,7 @@ class mpFFT(object):
                     direction="FORWARD",fftw_FLAGS=("FFTW_MEASURE",),
                     processes=None):
 
-        if processes==None:
+        if processes is None:
             processes = cpu_count()
 
         if len(inputSize)<=len(axes):
@@ -332,12 +328,10 @@ class Convolve(object):
         if shape2 is None:
             shape2 = shape1
 
-        else:
-            # Check shapes are compatible
-            if (shape1[axes[0]]!=shape2[axes[0]] or
+        elif (shape1[axes[0]]!=shape2[axes[0]] or
                     shape1[axes[1]]!=shape2[axes[1]]):
-                raise ValueError(
-                        'Shapes not compatible for convolution')
+            raise ValueError(
+                    'Shapes not compatible for convolution')
 
         # Initialise FFT objects
         self.fFFT = FFT(shape1, axes=axes, mode=mode,

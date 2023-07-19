@@ -19,6 +19,7 @@
 """
 The GUI for the Soapy adaptive optics simulation
 """
+
 import sys
 
 # Following required in case pyqt api v1 is default (on smome linux distros)
@@ -38,7 +39,7 @@ except (ImportError ,RuntimeError):
     from PyQt4 import QtGui, QtCore
     QtWidgets = QtGui
     PYQT_VERSION = 4
-logger.debug("Use PyQT Version {}".format(PYQT_VERSION ))
+logger.debug(f"Use PyQT Version {PYQT_VERSION}")
 
 # Do this so uses new Jupyter console if available
 try:
@@ -50,11 +51,11 @@ except ImportError:
 
 from IPython.lib import guisupport
 
-if PYQT_VERSION == 5:
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-elif PYQT_VERSION == 4:
+if PYQT_VERSION == 4:
     from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 
+elif PYQT_VERSION == 5:
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as pyplot
 from .. import pyqtgraph
@@ -81,13 +82,13 @@ pyqtgraph.graphicsItems.GradientEditorItem.Gradients = pyqtgraph.pgcollections.O
         ])
 
 
-if PYQT_VERSION == 5:
-    from .aogui_ui5 import Ui_MainWindow
-elif PYQT_VERSION == 4:
+if PYQT_VERSION == 4:
     from .aogui_ui4 import Ui_MainWindow
 
 
 
+elif PYQT_VERSION == 5:
+    from .aogui_ui5 import Ui_MainWindow
 import numpy
 import time
 import json
@@ -114,7 +115,7 @@ except ImportError:
     GL = False
 
 
-guiFile_path = os.path.abspath(os.path.realpath(__file__)+"/..")
+guiFile_path = os.path.abspath(f"{os.path.realpath(__file__)}/..")
 
 #This is the colormap to be used in all pyqtgraph plots
 #It can be changed in the GUI using the gradient slider in the top left
@@ -285,7 +286,7 @@ class GUI(QtWidgets.QMainWindow):
         self.gainSpins = []
         for dm in range(self.config.sim.nDM):
             gainLabel = QtGui.QLabel()
-            gainLabel.setText("DM {}:".format(dm))
+            gainLabel.setText(f"DM {dm}:")
             self.ui.gainLayout.addWidget(gainLabel)
 
             self.gainSpins.append(QtGui.QDoubleSpinBox())
@@ -430,17 +431,13 @@ class GUI(QtWidgets.QMainWindow):
                             *self.sim.config.sim.pxlScale
                             +self.config.sim.pupilSize)
 
-                    if self.sim.wfss[wfs].radii!=None:
-                        radius = self.sim.wfss[wfs].radii[i]
-
-                    else:
+                    if self.sim.wfss[wfs].radii is None:
                         radius = self.config.sim.pupilSize/2.
 
-                    if self.sim.config.wfss[wfs].GSHeight!=0:
-                        colour="r"
                     else:
-                        colour="g"
+                        radius = self.sim.wfss[wfs].radii[i]
 
+                    colour = "r" if self.sim.config.wfss[wfs].GSHeight!=0 else "g"
                     circ = pylab.Circle(cent,radius=radius,alpha=0.2, fc=colour)
                     self.resultPlot.canvas.axes[i].add_patch(circ)
                     self.resultPlot.canvas.axes[i].set_yticks([])
@@ -530,11 +527,7 @@ class GUI(QtWidgets.QMainWindow):
 
     def iMat(self):
 
-        if self.iMatThread!=None:
-            running = self.iMatThread.isRunning()
-        else:
-            running = False
-
+        running = self.iMatThread.isRunning() if self.iMatThread!=None else False
         if running == False:
 
             # self.plotPupilOverlap()
@@ -617,7 +610,7 @@ class GUI(QtWidgets.QMainWindow):
 
         else:
             if i!="":
-                message+=" {}".format(i)
+                message += f" {i}"
             self.ui.progressLabel.setText(message)
 
 
@@ -759,11 +752,11 @@ class IPythonConsole:
                             }
 
         for i in range(sim.config.sim.nGS):
-            usefulObjects["wfs{}Config".format(i)] = sim.config.wfss[i]
+            usefulObjects[f"wfs{i}Config"] = sim.config.wfss[i]
         for i in range(sim.config.sim.nDM):
-            usefulObjects["dm{}Config".format(i)] = sim.config.dms[i]
+            usefulObjects[f"dm{i}Config"] = sim.config.dms[i]
         for i in range(sim.config.sim.nSci):
-            usefulObjects["sci{}Config".format(i)] = sim.config.scis[i]
+            usefulObjects[f"sci{i}Config"] = sim.config.scis[i]
 
         self.kernel.shell.push(usefulObjects)
 
@@ -792,9 +785,10 @@ class OverlapCanvas(FigureCanvas):
     def __init__(self, nAxes):
         self.fig = Figure(facecolor="white", frameon=False)
         self.axes=[]
-        for i in range(nAxes):
-            self.axes.append(self.fig.add_subplot(2, numpy.ceil(nAxes/2.),i+1))
-
+        self.axes.extend(
+            self.fig.add_subplot(2, numpy.ceil(nAxes / 2.0), i + 1)
+            for i in range(nAxes)
+        )
         FigureCanvas.__init__(self, self.fig)
         FigureCanvas.setSizePolicy(self, QtGui.QSizePolicy.Expanding,QtGui.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
@@ -850,10 +844,5 @@ if __name__ == "__main__":
     parser.add_argument("-gl",action="store_true")
     args = parser.parse_args()
 
-    if args.configFile != None:
-        confFile = args.configFile
-    else:
-        confFile = "conf/testConf.py"
-
-
+    confFile = args.configFile if args.configFile != None else "conf/testConf.py"
     G = GUI(confFile, useOpenGL=args.gl)

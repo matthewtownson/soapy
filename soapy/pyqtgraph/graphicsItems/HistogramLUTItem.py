@@ -170,10 +170,7 @@ class HistogramLUTItem(GraphicsWidget):
         HistogramLUTItem.
         """
         if n is None:
-            if img.dtype == np.uint8:
-                n = 256
-            else:
-                n = 512
+            n = 256 if img.dtype == np.uint8 else 512
         if self.lut is None:
             self.lut = self.gradient.getLookupTable(n, alpha=alpha)
         return self.lut

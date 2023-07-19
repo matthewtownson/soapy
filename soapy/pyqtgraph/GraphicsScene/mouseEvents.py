@@ -226,10 +226,7 @@ class MouseClickEvent(object):
 
     def __repr__(self):
         try:
-            if self.currentItem is None:
-                p = self._scenePos
-            else:
-                p = self.pos()
+            p = self._scenePos if self.currentItem is None else self.pos()
             return "<MouseClickEvent (%g,%g) button=%d>" % (p.x(), p.y(), int(self.button()))
         except:
             return "<MouseClickEvent button=%d>" % (int(self.button()))

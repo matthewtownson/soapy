@@ -74,9 +74,7 @@ class PlotCurveItem(GraphicsObject):
         
     def implements(self, interface=None):
         ints = ['plotData']
-        if interface is None:
-            return ints
-        return interface in ints
+        return ints if interface is None else interface in ints
     
     def name(self):
         return self.opts.get('name', None)
@@ -103,11 +101,11 @@ class PlotCurveItem(GraphicsObject):
         cache = self._boundsCache[ax]
         if cache is not None and cache[0] == (frac, orthoRange):
             return cache[1]
-        
+
         (x, y) = self.getData()
         if x is None or len(x) == 0:
             return (None, None)
-            
+
         if ax == 0:
             d = x
             d2 = y
@@ -120,7 +118,7 @@ class PlotCurveItem(GraphicsObject):
             mask = (d2 >= orthoRange[0]) * (d2 <= orthoRange[1])
             d = d[mask]
             #d2 = d2[mask]
-            
+
         if len(d) == 0:
             return (None, None)
 
@@ -133,9 +131,9 @@ class PlotCurveItem(GraphicsObject):
                 mask = np.isfinite(d)
                 d = d[mask]
                 b = (d.min(), d.max())
-                
+
         elif frac <= 0.0:
-            raise Exception("Value for parameter 'frac' must be > 0. (got %s)" % str(frac))
+            raise Exception(f"Value for parameter 'frac' must be > 0. (got {str(frac)})")
         else:
             # include a percentile of data range
             mask = np.isfinite(d)
@@ -145,7 +143,7 @@ class PlotCurveItem(GraphicsObject):
         ## adjust for fill level
         if ax == 1 and self.opts['fillLevel'] is not None:
             b = (min(b[0], self.opts['fillLevel']), max(b[1], self.opts['fillLevel']))
-            
+
         ## Add pen width only if it is non-cosmetic.
         pen = self.opts['pen']
         spen = self.opts['shadowPen']
@@ -153,7 +151,7 @@ class PlotCurveItem(GraphicsObject):
             b = (b[0] - pen.widthF()*0.7072, b[1] + pen.widthF()*0.7072)
         if spen is not None and not spen.isCosmetic() and spen.style() != QtCore.Qt.NoPen:
             b = (b[0] - spen.widthF()*0.7072, b[1] + spen.widthF()*0.7072)
-            
+
         self._boundsCache[ax] = [(frac, orthoRange), b]
         return b
             
@@ -314,12 +312,12 @@ class PlotCurveItem(GraphicsObject):
         elif len(args) == 2:
             kargs['x'] = args[0]
             kargs['y'] = args[1]
-        
+
         if 'y' not in kargs or kargs['y'] is None:
             kargs['y'] = np.array([])
         if 'x' not in kargs or kargs['x'] is None:
             kargs['x'] = np.arange(len(kargs['y']))
-            
+
         for k in ['x', 'y']:
             data = kargs[k]
             if isinstance(data, list):
@@ -329,34 +327,35 @@ class PlotCurveItem(GraphicsObject):
                 raise Exception("Plot data must be 1D ndarray.")
             if 'complex' in str(data.dtype):
                 raise Exception("Can not plot complex data types.")
-            
+
         profiler("data checks")
-        
-        #self.setCacheMode(QtGui.QGraphicsItem.NoCache)  ## Disabling and re-enabling the cache works around a bug in Qt 4.6 causing the cached results to display incorrectly
-                                                        ##    Test this bug with test_PlotWidget and zoom in on the animated plot
+
         self.invalidateBounds()
         self.prepareGeometryChange()
         self.informViewBoundsChanged()
         self.yData = kargs['y'].view(np.ndarray)
         self.xData = kargs['x'].view(np.ndarray)
-        
+
         profiler('copy')
-        
+
         if 'stepMode' in kargs:
             self.opts['stepMode'] = kargs['stepMode']
-        
+
         if self.opts['stepMode'] is True:
             if len(self.xData) != len(self.yData)+1:  ## allow difference of 1 for step mode plots
-                raise Exception("len(X) must be len(Y)+1 since stepMode=True (got %s and %s)" % (self.xData.shape, self.yData.shape))
-        else:
-            if self.xData.shape != self.yData.shape:  ## allow difference of 1 for step mode plots
-                raise Exception("X and Y arrays must be the same shape--got %s and %s." % (self.xData.shape, self.yData.shape))
-        
+                raise Exception(
+                    f"len(X) must be len(Y)+1 since stepMode=True (got {self.xData.shape} and {self.yData.shape})"
+                )
+        elif self.xData.shape != self.yData.shape:  ## allow difference of 1 for step mode plots
+            raise Exception(
+                f"X and Y arrays must be the same shape--got {self.xData.shape} and {self.yData.shape}."
+            )
+
         self.path = None
         self.fillPath = None
         self._mouseShape = None
         #self.xDisp = self.yDisp = None
-        
+
         if 'name' in kargs:
             self.opts['name'] = kargs['name']
         if 'connect' in kargs:
@@ -371,8 +370,8 @@ class PlotCurveItem(GraphicsObject):
             self.setBrush(kargs['brush'])
         if 'antialias' in kargs:
             self.opts['antialias'] = kargs['antialias']
-        
-        
+
+
         profiler('set')
         self.update()
         profiler('update')
@@ -397,10 +396,8 @@ class PlotCurveItem(GraphicsObject):
                 y = y2.reshape(y2.size)[1:-1]
                 y[0] = self.opts['fillLevel']
                 y[-1] = self.opts['fillLevel']
-        
-        path = fn.arrayToQPath(x, y, connect=self.opts['connect'])
-        
-        return path
+
+        return fn.arrayToQPath(x, y, connect=self.opts['connect'])
 
 
     def getPath(self):

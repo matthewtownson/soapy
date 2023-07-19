@@ -41,30 +41,30 @@ def reloadAll(prefix=None, debug=False):
             continue
         if modName == '__main__':
             continue
-        
+
         ## Ignore if the file name does not start with prefix
         if not hasattr(mod, '__file__') or os.path.splitext(mod.__file__)[1] not in ['.py', '.pyc']:
             continue
         if prefix is not None and mod.__file__[:len(prefix)] != prefix:
             continue
-        
+
         ## ignore if the .pyc is newer than the .py (or if there is no pyc or py)
-        py = os.path.splitext(mod.__file__)[0] + '.py'
-        pyc = py + 'c'
+        py = f'{os.path.splitext(mod.__file__)[0]}.py'
+        pyc = f'{py}c'
         if py not in changed and os.path.isfile(pyc) and os.path.isfile(py) and os.stat(pyc).st_mtime >= os.stat(py).st_mtime:
             #if debug:
                 #print "Ignoring module %s; unchanged" % str(mod)
             continue
         changed.append(py)  ## keep track of which modules have changed to insure that duplicate-import modules get reloaded.
-        
+
         try:
             reload(mod, debug=debug)
         except:
             printExc("Error while reloading module %s, skipping\n" % mod)
             failed.append(mod.__name__)
-        
-    if len(failed) > 0:
-        raise Exception("Some modules failed to reload: %s" % ', '.join(failed))
+
+    if failed:
+        raise Exception(f"Some modules failed to reload: {', '.join(failed)}")
 
 def reload(module, debug=False, lists=False, dicts=False):
     """Replacement for the builtin reload function:
@@ -75,40 +75,40 @@ def reload(module, debug=False, lists=False, dicts=False):
     - Requires that class and function names have not changed
     """
     if debug:
-        print("Reloading %s" % str(module))
-        
+        print(f"Reloading {str(module)}")
+
     ## make a copy of the old module dictionary, reload, then grab the new module dictionary for comparison
     oldDict = module.__dict__.copy()
     builtins.reload(module)
     newDict = module.__dict__
-    
+
     ## Allow modules access to the old dictionary after they reload
     if hasattr(module, '__reload__'):
         module.__reload__(oldDict)
-    
+
     ## compare old and new elements from each dict; update where appropriate
     for k in oldDict:
         old = oldDict[k]
         new = newDict.get(k, None)
         if old is new or new is None:
             continue
-        
+
         if inspect.isclass(old):
             if debug:
                 print("  Updating class %s.%s (0x%x -> 0x%x)" % (module.__name__, k, id(old), id(new)))
             updateClass(old, new, debug)
-                    
+
         elif inspect.isfunction(old):
             depth = updateFunction(old, new, debug)
             if debug:
                 extra = ""
                 if depth > 0:
                     extra = " (and %d previous versions)" % depth
-                print("  Updating function %s.%s%s" % (module.__name__, k, extra))
+                print(f"  Updating function {module.__name__}.{k}{extra}")
         elif lists and isinstance(old, list):
             l = old.len()
             old.extend(new)
-            for i in range(l):
+            for _ in range(l):
                 old.pop(0)
         elif dicts and isinstance(old, dict):
             old.update(new)
@@ -160,30 +160,32 @@ def updateClass(old, new, debug):
             if isinstance(ref, old) and ref.__class__ is old:
                 ref.__class__ = new
                 if debug:
-                    print("    Changed class for %s" % safeStr(ref))
+                    print(f"    Changed class for {safeStr(ref)}")
             elif inspect.isclass(ref) and issubclass(ref, old) and old in ref.__bases__:
                 ind = ref.__bases__.index(old)
-                
+
                 ## Does not work:
                 #ref.__bases__ = ref.__bases__[:ind] + (new,) + ref.__bases__[ind+1:]
                 ## reason: Even though we change the code on methods, they remain bound
                 ## to their old classes (changing im_class is not allowed). Instead,
                 ## we have to update the __bases__ such that this class will be allowed
                 ## as an argument to older methods.
-                
+
                 ## This seems to work. Is there any reason not to?
                 ## Note that every time we reload, the class hierarchy becomes more complex.
                 ## (and I presume this may slow things down?)
                 ref.__bases__ = ref.__bases__[:ind] + (new,old) + ref.__bases__[ind+1:]
                 if debug:
-                    print("    Changed superclass for %s" % safeStr(ref))
-            #else:
-                #if debug:
-                    #print "    Ignoring reference", type(ref)
+                    print(f"    Changed superclass for {safeStr(ref)}")
+                    #else:
+                        #if debug:
+                            #print "    Ignoring reference", type(ref)
         except:
-            print("Error updating reference (%s) for class change (%s -> %s)" % (safeStr(ref), safeStr(old), safeStr(new)))
+            print(
+                f"Error updating reference ({safeStr(ref)}) for class change ({safeStr(old)} -> {safeStr(new)})"
+            )
             raise
-        
+
     ## update all class methods to use new code.
     ## Generally this is not needed since instances already know about the new class, 
     ## but it fixes a few specific cases (pyqt signals, for one)
@@ -194,9 +196,11 @@ def updateClass(old, new, debug):
                 na = getattr(new, attr)
             except AttributeError:
                 if debug:
-                    print("    Skipping method update for %s; new class does not have this attribute" % attr)
+                    print(
+                        f"    Skipping method update for {attr}; new class does not have this attribute"
+                    )
                 continue
-                
+
             if hasattr(oa, 'im_func') and hasattr(na, 'im_func') and oa.__func__ is not na.__func__:
                 depth = updateFunction(oa.__func__, na.__func__, debug)
                 #oa.im_class = new  ## bind old method to new class  ## not allowed
@@ -204,15 +208,15 @@ def updateClass(old, new, debug):
                     extra = ""
                     if depth > 0:
                         extra = " (and %d previous versions)" % depth
-                    print("    Updating method %s%s" % (attr, extra))
-                
+                    print(f"    Updating method {attr}{extra}")
+
     ## And copy in new functions that didn't exist previously
     for attr in dir(new):
         if not hasattr(old, attr):
             if debug:
-                print("    Adding missing attribute %s" % attr)
+                print(f"    Adding missing attribute {attr}")
             setattr(old, attr, getattr(new, attr))
-            
+
     ## finally, update any previous versions still hanging around..
     if hasattr(old, '__previous_reload_version__'):
         updateClass(old.__previous_reload_version__, new, debug)

@@ -354,34 +354,11 @@ class GraphicsScene(QtGui.QGraphicsScene):
     def items(self, *args):
         #print 'args:', args
         items = QtGui.QGraphicsScene.items(self, *args)
-        ## PyQt bug: items() returns a list of QGraphicsItem instances. If the item is subclassed from QGraphicsObject,
-        ## then the object returned will be different than the actual item that was originally added to the scene
-        items2 = list(map(self.translateGraphicsItem, items))
-        #if HAVE_SIP and isinstance(self, sip.wrapper):
-            #items2 = []
-            #for i in items:
-                #addr = sip.unwrapinstance(sip.cast(i, QtGui.QGraphicsItem))
-                #i2 = GraphicsScene._addressCache.get(addr, i)
-                ##print i, "==>", i2
-                #items2.append(i2)
-        #print 'items:', items
-        return items2
+        return list(map(self.translateGraphicsItem, items))
     
     def selectedItems(self, *args):
         items = QtGui.QGraphicsScene.selectedItems(self, *args)
-        ## PyQt bug: items() returns a list of QGraphicsItem instances. If the item is subclassed from QGraphicsObject,
-        ## then the object returned will be different than the actual item that was originally added to the scene
-        #if HAVE_SIP and isinstance(self, sip.wrapper):
-            #items2 = []
-            #for i in items:
-                #addr = sip.unwrapinstance(sip.cast(i, QtGui.QGraphicsItem))
-                #i2 = GraphicsScene._addressCache.get(addr, i)
-                ##print i, "==>", i2
-                #items2.append(i2)
-        items2 = list(map(self.translateGraphicsItem, items))
-
-        #print 'items:', items
-        return items2
+        return list(map(self.translateGraphicsItem, items))
 
     def itemAt(self, *args):
         item = QtGui.QGraphicsScene.itemAt(self, *args)
@@ -404,7 +381,7 @@ class GraphicsScene(QtGui.QGraphicsScene):
         tr = view.viewportTransform()
         r = self._clickRadius
         rect = view.mapToScene(QtCore.QRect(0, 0, 2*r, 2*r)).boundingRect()
-        
+
         seen = set()
         if hasattr(event, 'buttonDownScenePos'):
             point = event.buttonDownScenePos()
@@ -417,7 +394,7 @@ class GraphicsScene(QtGui.QGraphicsScene):
 
 
         items = self.items(point, selMode, sortOrder, tr)
-        
+
         ## remove items whose shape does not contain point (scene.items() apparently sucks at this)
         items2 = []
         for item in items:
@@ -428,16 +405,14 @@ class GraphicsScene(QtGui.QGraphicsScene):
                 continue
             if shape.contains(item.mapFromScene(point)):
                 items2.append(item)
-        
+
         ## Sort by descending Z-order (don't trust scene.itms() to do this either)
         ## use 'absolute' z value, which is the sum of all item/parent ZValues
         def absZValue(item):
-            if item is None:
-                return 0
-            return item.zValue() + absZValue(item.parentItem())
-        
+            return 0 if item is None else item.zValue() + absZValue(item.parentItem())
+
         sortList(items2, lambda a,b: cmp(absZValue(b), absZValue(a)))
-        
+
         return items2
         
         #for item in items:
@@ -520,8 +495,8 @@ class GraphicsScene(QtGui.QGraphicsScene):
             elif isinstance(m, QtGui.QAction):
                 menu.addAction(m)
             else:
-                raise Exception("Cannot add object %s (type=%s) to QMenu." % (str(m), str(type(m))))
-            
+                raise Exception(f"Cannot add object {str(m)} (type={str(type(m))}) to QMenu.")
+
         return menu
 
     def getContextMenus(self, event):

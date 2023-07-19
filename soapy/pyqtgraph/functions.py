@@ -50,7 +50,7 @@ def siScale(x, minVal=1e-25, allowUnicode=True):
     
     if isinstance(x, decimal.Decimal):
         x = float(x)
-        
+
     try:
         if np.isnan(x) or np.isinf(x):
             return(1, '')
@@ -62,18 +62,15 @@ def siScale(x, minVal=1e-25, allowUnicode=True):
         x = 0
     else:
         m = int(np.clip(np.floor(np.log(abs(x))/np.log(1000)), -9.0, 9.0))
-    
+
     if m == 0:
         pref = ''
     elif m < -8 or m > 8:
         pref = 'e%d' % (m*3)
     else:
-        if allowUnicode:
-            pref = SI_PREFIXES[m+8]
-        else:
-            pref = SI_PREFIXES_ASCII[m+8]
+        pref = SI_PREFIXES[m+8] if allowUnicode else SI_PREFIXES_ASCII[m+8]
     p = .001**m
-    
+
     return (p, pref)    
 
 def siFormat(x, precision=3, suffix='', space=True, error=None, minVal=1e-25, allowUnicode=True):
@@ -88,21 +85,18 @@ def siFormat(x, precision=3, suffix='', space=True, error=None, minVal=1e-25, al
         space = ' '
     if space is False:
         space = ''
-        
-    
+
+
     (p, pref) = siScale(x, minVal, allowUnicode)
-    if not (len(pref) > 0 and pref[0] == 'e'):
+    if len(pref) <= 0 or pref[0] != 'e':
         pref = space + pref
-    
+
     if error is None:
-        fmt = "%." + str(precision) + "g%s%s"
+        fmt = f"%.{str(precision)}g%s%s"
         return fmt % (x*p, pref, suffix)
     else:
-        if allowUnicode:
-            plusminus = space + asUnicode("±") + space
-        else:
-            plusminus = " +/- "
-        fmt = "%." + str(precision) + "g%s%s%s%s"
+        plusminus = space + asUnicode("±") + space if allowUnicode else " +/- "
+        fmt = f"%.{str(precision)}g%s%s%s%s"
         return fmt % (x*p, pref, suffix, plusminus, siFormat(error, precision=precision, suffix=suffix, space=space, minVal=minVal))
     
 def siEval(s):
@@ -117,11 +111,9 @@ def siEval(s):
     s = asUnicode(s)
     m = re.match(r'(-?((\d+(\.\d*)?)|(\.\d+))([eE]-?\d+)?)\s*([u' + SI_PREFIXES + r']?).*$', s)
     if m is None:
-        raise Exception("Can't convert string '%s' to number." % s)
+        raise Exception(f"Can't convert string '{s}' to number.")
     v = float(m.groups()[0])
     p = m.groups()[6]
-    #if p not in SI_PREFIXES:
-        #raise Exception("Can't convert string '%s' to number--unknown prefix." % s)
     if p ==  '':
         n = 0
     elif p == 'u':
@@ -161,7 +153,7 @@ def mkColor(*args):
      QColor          QColor instance; makes a copy.
     ================ ================================================
     """
-    err = 'Not sure how to make a color from "%s"' % str(args)
+    err = f'Not sure how to make a color from "{args}"'
     if len(args) == 1:
         if isinstance(args[0], basestring):
             c = args[0]
@@ -171,7 +163,7 @@ def mkColor(*args):
                 try:
                     return Colors[c]
                 except KeyError:
-                    raise Exception('No color named "%s"' % c)
+                    raise Exception(f'No color named "{c}"')
             if len(c) == 3:
                 r = int(c[0]*2, 16)
                 g = int(c[1]*2, 16)
@@ -183,12 +175,12 @@ def mkColor(*args):
                 b = int(c[2]*2, 16)
                 a = int(c[3]*2, 16)
             elif len(c) == 6:
-                r = int(c[0:2], 16)
+                r = int(c[:2], 16)
                 g = int(c[2:4], 16)
                 b = int(c[4:6], 16)
                 a = 255
             elif len(c) == 8:
-                r = int(c[0:2], 16)
+                r = int(c[:2], 16)
                 g = int(c[2:4], 16)
                 b = int(c[4:6], 16)
                 a = int(c[6:8], 16)
@@ -218,7 +210,7 @@ def mkColor(*args):
         (r, g, b, a) = args
     else:
         raise Exception(err)
-    
+
     args = [r,g,b,a]
     args = [0 if np.isnan(a) or np.isinf(a) else a for a in args]
     args = list(map(int, args))
@@ -266,7 +258,7 @@ def mkPen(*args, **kargs):
     dash = kargs.get('dash', None)
     cosmetic = kargs.get('cosmetic', True)
     hsv = kargs.get('hsv', None)
-    
+
     if len(args) == 1:
         arg = args[0]
         if isinstance(arg, dict):
@@ -279,14 +271,10 @@ def mkPen(*args, **kargs):
             color = arg
     if len(args) > 1:
         color = args
-        
+
     if color is None:
         color = mkColor('l')
-    if hsv is not None:
-        color = hsvColor(*hsv)
-    else:
-        color = mkColor(color)
-        
+    color = hsvColor(*hsv) if hsv is not None else mkColor(color)
     pen = QtGui.QPen(QtGui.QBrush(color), width)
     pen.setCosmetic(cosmetic)
     if style is not None:
@@ -378,24 +366,22 @@ def eq(a, b):
     """The great missing equivalence function: Guaranteed evaluation to a single bool value."""
     if a is b:
         return True
-        
+
     try:
         with warnings.catch_warnings(module=np):  # ignore numpy futurewarning (numpy v. 1.10)
             e = a==b
-    except ValueError:
-        return False
-    except AttributeError: 
+    except (ValueError, AttributeError):
         return False
     except:
         print('failed to evaluate equivalence for:')
-        print("  a:", str(type(a)), str(a))
-        print("  b:", str(type(b)), str(b))
+        print("  a:", type(a), a)
+        print("  b:", type(b), b)
         raise
     t = type(e)
     if t is bool:
         return e
     elif t is np.bool_:
-        return bool(e)
+        return e
     elif isinstance(e, np.ndarray) or (hasattr(e, 'implements') and e.implements('MetaArray')):
         try:   ## disaster: if a is an empty array and b is not, then e.all() is True
             if a.shape != b.shape:
@@ -407,7 +393,7 @@ def eq(a, b):
         else:
             return e.all()
     else:
-        raise Exception("== operator returned type %s" % str(type(e)))
+        raise Exception(f"== operator returned type {str(type(e))}")
 
     
 def affineSlice(data, shape, origin, vectors, axes, order=1, returnCoords=False, **kargs):
@@ -468,7 +454,7 @@ def affineSlice(data, shape, origin, vectors, axes, order=1, returnCoords=False,
     for v in vectors:
         if len(v) != len(axes):
             raise Exception("each vector must be same length as axes.")
-        
+
     shape = list(map(np.ceil, shape))
 
     ## transpose data so slice axes come first
@@ -479,16 +465,16 @@ def affineSlice(data, shape, origin, vectors, axes, order=1, returnCoords=False,
     data = data.transpose(tr1)
     #print "tr1:", tr1
     ## dims are now [(slice axes), (other axes)]
-    
+
     ## make sure vectors are arrays
     if not isinstance(vectors, np.ndarray):
         vectors = np.array(vectors)
     if not isinstance(origin, np.ndarray):
         origin = np.array(origin)
     origin.shape = (len(axes),) + (1,)*len(shape)
-    
-    ## Build array of sample locations. 
-    grid = np.mgrid[tuple([slice(0,x) for x in shape])]  ## mesh grid of indexes
+
+    ## Build array of sample locations.
+    grid = np.mgrid[tuple(slice(0,x) for x in shape)]
     x = (grid[np.newaxis,...] * vectors.transpose()[(Ellipsis,) + (np.newaxis,)*len(shape)]).sum(axis=1)  ## magic
     x += origin
 
@@ -504,7 +490,7 @@ def affineSlice(data, shape, origin, vectors, axes, order=1, returnCoords=False,
         # interpolateArray expects indexes at the last axis. 
         tr = tuple(range(1,x.ndim)) + (0,)
         output = interpolateArray(data, x.transpose(tr))
-    
+
     tr = list(range(output.ndim))
     trb = []
     for i in range(min(axes)):
@@ -515,10 +501,7 @@ def affineSlice(data, shape, origin, vectors, axes, order=1, returnCoords=False,
 
     ## Untranspose array before returning
     output = output.transpose(tr2)
-    if returnCoords:
-        return (output, x)
-    else:
-        return output
+    return (output, x) if returnCoords else output
 
 def interpolateArray(data, x, default=0.0):
     """
@@ -575,7 +558,7 @@ def interpolateArray(data, x, default=0.0):
     This is useful for interpolating from arrays of colors, vertexes, etc.
     """
     prof = debug.Profiler()
-    
+
     nd = data.ndim
     md = x.shape[-1]
     if md > nd:
@@ -593,7 +576,7 @@ def interpolateArray(data, x, default=0.0):
         mask = (xmin[...,ax] >= 0) & (x[...,ax] <= data.shape[ax]-1) 
         # keep track of points that need to be set to default
         totalMask &= mask
-        
+
         # ..and keep track of indexes that are out of bounds 
         # (note that when x[...,ax] == data.shape[ax], then xmax[...,ax] will be out
         #  of bounds, but the interpolation will work anyway)
@@ -607,7 +590,7 @@ def interpolateArray(data, x, default=0.0):
     # Get data values surrounding each requested point
     fieldData = data[tuple(fieldInds)]
     prof()
-    
+
     ## Interpolate
     s = np.empty((md,) + fieldData.shape, dtype=float)
     dx = x - xmin
@@ -619,16 +602,15 @@ def interpolateArray(data, x, default=0.0):
         s[ax] = sax
     s = np.product(s, axis=0)
     result = fieldData * s
-    for i in range(md):
+    for _ in range(md):
         result = result.sum(axis=0)
 
     prof()
 
     if totalMask.ndim > 0:
         result[~totalMask] = default
-    else:
-        if totalMask is False:
-            result[:] = default
+    elif totalMask is False:
+        result[:] = default
 
     prof()
     return result
@@ -822,11 +804,7 @@ def rescaleData(data, scale, offset, dtype=None, clip=None):
         data => (data-offset) * scale
         
     """
-    if dtype is None:
-        dtype = data.dtype
-    else:
-        dtype = np.dtype(dtype)
-    
+    dtype = data.dtype if dtype is None else np.dtype(dtype)
     try:
         if not getConfigOption('useWeave'):
             raise Exception('Weave is disabled; falling back to slower version.')
@@ -834,19 +812,15 @@ def rescaleData(data, scale, offset, dtype=None, clip=None):
             import scipy.weave
         except ImportError:
             raise Exception('scipy.weave is not importable; falling back to slower version.')
-        
+
         ## require native dtype when using weave
         if not data.dtype.isnative:
             data = data.astype(data.dtype.newbyteorder('='))
-        if not dtype.isnative:
-            weaveDtype = dtype.newbyteorder('=')
-        else:
-            weaveDtype = dtype
-        
+        weaveDtype = dtype.newbyteorder('=') if not dtype.isnative else dtype
         newData = np.empty((data.size,), dtype=weaveDtype)
         flat = np.ascontiguousarray(data).reshape(data.size)
         size = data.size
-        
+
         code = """
         double sc = (double)scale;
         double off = (double)offset;
@@ -863,23 +837,22 @@ def rescaleData(data, scale, offset, dtype=None, clip=None):
             if getConfigOption('weaveDebug'):
                 debug.printExc("Error; disabling weave.")
             setConfigOptions(useWeave=False)
-        
+
         #p = np.poly1d([scale, -offset*scale])
         #d2 = p(data)
         d2 = data - float(offset)
         d2 *= scale
-        
+
         # Clip before converting dtype to avoid overflow
         if dtype.kind in 'ui':
             lim = np.iinfo(dtype)
-            if clip is None:
-                # don't let rescale cause integer overflow
-                d2 = np.clip(d2, lim.min, lim.max)
-            else:
-                d2 = np.clip(d2, max(clip[0], lim.min), min(clip[1], lim.max))
-        else:
-            if clip is not None:
-                d2 = np.clip(d2, *clip)
+            d2 = (
+                np.clip(d2, lim.min, lim.max)
+                if clip is None
+                else np.clip(d2, max(clip[0], lim.min), min(clip[1], lim.max))
+            )
+        elif clip is not None:
+            d2 = np.clip(d2, *clip)
         data = d2.astype(dtype)
     return data
     
@@ -902,7 +875,7 @@ def makeRGBA(*args, **kwds):
     return makeARGB(*args, **kwds)
 
 
-def makeARGB(data, lut=None, levels=None, scale=None, useRGBA=False): 
+def makeARGB(data, lut=None, levels=None, scale=None, useRGBA=False):
     """ 
     Convert an array of values into an ARGB array suitable for building QImages,
     OpenGL textures, etc.
@@ -948,10 +921,10 @@ def makeARGB(data, lut=None, levels=None, scale=None, useRGBA=False):
         raise TypeError("data must be 2D or 3D")
     if data.ndim == 3 and data.shape[2] > 4:
         raise TypeError("data.shape[2] must be <= 4")
-    
+
     if lut is not None and not isinstance(lut, np.ndarray):
         lut = np.array(lut)
-    
+
     if levels is None:
         # automatically decide levels based on data dtype
         if data.dtype.kind == 'u':
@@ -974,23 +947,17 @@ def makeARGB(data, lut=None, levels=None, scale=None, useRGBA=False):
         if levels.shape != (data.shape[-1], 2):
             raise Exception('levels must have shape (data.shape[-1], 2)')
     else:
-        raise Exception("levels argument must be 1D or 2D (got shape=%s)." % repr(levels.shape))
+        raise Exception(
+            f"levels argument must be 1D or 2D (got shape={repr(levels.shape)})."
+        )
 
     profile()
 
     # Decide on maximum scaled value
     if scale is None:
-        if lut is not None:
-            scale = lut.shape[0] - 1
-        else:
-            scale = 255.
-
+        scale = lut.shape[0] - 1 if lut is not None else 255.
     # Decide on the dtype we want after scaling
-    if lut is None:
-        dtype = np.ubyte
-    else:
-        dtype = np.min_scalar_type(lut.shape[0]-1)
-            
+    dtype = np.ubyte if lut is None else np.min_scalar_type(lut.shape[0]-1)
     # Apply levels if given
     if levels is not None:
         if isinstance(levels, np.ndarray) and levels.ndim == 2:
@@ -1011,16 +978,15 @@ def makeARGB(data, lut=None, levels=None, scale=None, useRGBA=False):
                 if minVal == maxVal:
                     maxVal += 1e-16
                 data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=dtype)
-            
+
 
     profile()
 
     # apply LUT if given
     if lut is not None:
         data = applyLookupTable(data, lut)
-    else:
-        if data.dtype is not np.ubyte:
-            data = np.clip(data, 0, 255).astype(np.ubyte)
+    elif data.dtype is not np.ubyte:
+        data = np.clip(data, 0, 255).astype(np.ubyte)
 
     profile()
 
@@ -1030,11 +996,7 @@ def makeARGB(data, lut=None, levels=None, scale=None, useRGBA=False):
     profile()
 
     # decide channel order
-    if useRGBA:
-        order = [0,1,2,3] # array comes out RGBA
-    else:
-        order = [2,1,0,3] # for some reason, the colors line up as BGR in the final image.
-        
+    order = [0,1,2,3] if useRGBA else [2,1,0,3]
     # copy data into image array
     if data.ndim == 2:
         # This is tempting:
@@ -1048,16 +1010,16 @@ def makeARGB(data, lut=None, levels=None, scale=None, useRGBA=False):
     else:
         for i in range(0, data.shape[2]):
             imgData[..., i] = data[..., order[i]] 
-        
+
     profile()
-    
+
     # add opaque alpha channel if needed
     if data.ndim == 2 or data.shape[2] == 3:
         alpha = False
         imgData[..., 3] = 255
     else:
         alpha = True
-        
+
     profile()
     return imgData, alpha
 
@@ -1090,27 +1052,22 @@ def makeQImage(imgData, alpha=None, copy=True, transpose=True):
     """
     ## create QImage from buffer
     profile = debug.Profiler()
-    
+
     ## If we didn't explicitly specify alpha, check the array shape.
     if alpha is None:
         alpha = (imgData.shape[2] == 4)
-        
+
     copied = False
-    if imgData.shape[2] == 3:  ## need to make alpha channel (even if alpha==False; QImage requires 32 bpp)
-        if copy is True:
-            d2 = np.empty(imgData.shape[:2] + (4,), dtype=imgData.dtype)
-            d2[:,:,:3] = imgData
-            d2[:,:,3] = 255
-            imgData = d2
-            copied = True
-        else:
+    if imgData.shape[2] == 3:
+        if copy is not True:
             raise Exception('Array has only 3 channels; cannot make QImage without copying.')
-    
-    if alpha:
-        imgFormat = QtGui.QImage.Format_ARGB32
-    else:
-        imgFormat = QtGui.QImage.Format_RGB32
-        
+
+        d2 = np.empty(imgData.shape[:2] + (4,), dtype=imgData.dtype)
+        d2[:,:,:3] = imgData
+        d2[:,:,3] = 255
+        imgData = d2
+        copied = True
+    imgFormat = QtGui.QImage.Format_ARGB32 if alpha else QtGui.QImage.Format_RGB32
     if transpose:
         imgData = imgData.transpose((1, 0, 2))  ## QImage expects the row/column order to be opposite
 
@@ -1119,13 +1076,15 @@ def makeQImage(imgData, alpha=None, copy=True, transpose=True):
     if not imgData.flags['C_CONTIGUOUS']:
         if copy is False:
             extra = ' (try setting transpose=False)' if transpose else ''
-            raise Exception('Array is not contiguous; cannot make QImage without copying.'+extra)
+            raise Exception(
+                f'Array is not contiguous; cannot make QImage without copying.{extra}'
+            )
         imgData = np.ascontiguousarray(imgData)
         copied = True
-        
-    if copy is True and copied is False:
+
+    if copy is True and not copied:
         imgData = imgData.copy()
-        
+
     if USE_PYSIDE:
         ch = ctypes.c_char.from_buffer(imgData, 0)
         img = QtGui.QImage(ch, imgData.shape[1], imgData.shape[0], imgFormat)
@@ -1148,7 +1107,7 @@ def makeQImage(imgData, alpha=None, copy=True, transpose=True):
             else:
                 # mutable, but leaks memory
                 img = QtGui.QImage(memoryview(imgData), imgData.shape[1], imgData.shape[0], imgFormat)
-                
+
     img.data = imgData
     return img
     #try:
@@ -1180,18 +1139,15 @@ def imageToArray(img, copy=False, transpose=True):
             # Required for Python 2.6, PyQt 4.10
             # If this works on all platforms, then there is no need to use np.asarray..
             arr = np.frombuffer(ptr, np.ubyte, img.byteCount())
-    
+
     arr = arr.reshape(img.height(), img.width(), 4)
     if fmt == img.Format_RGB32:
         arr[...,3] = 255
-    
+
     if copy:
         arr = arr.copy()
-        
-    if transpose:
-        return arr.transpose((1,0,2))
-    else:
-        return arr
+
+    return arr.transpose((1,0,2)) if transpose else arr
     
 def colorToAlpha(data, color):
     """
@@ -1287,15 +1243,15 @@ def downsample(data, n, axis=0, xvals='subsample'):
     if (hasattr(data, 'implements') and data.implements('MetaArray')):
         ma = data
         data = data.view(np.ndarray)
-        
-    
+
+
     if hasattr(axis, '__len__'):
         if not hasattr(n, '__len__'):
             n = [n]*len(axis)
         for i in range(len(axis)):
             data = downsample(data, n[i], axis[i])
         return data
-    
+
     if n <= 1:
         return data
     nPts = int(data.shape[axis] / n)
@@ -1308,17 +1264,16 @@ def downsample(data, n, axis=0, xvals='subsample'):
     #print d1.shape, s
     d1.shape = tuple(s)
     d2 = d1.mean(axis+1)
-    
+
     if ma is None:
         return d2
-    else:
-        info = ma.infoCopy()
-        if 'values' in info[axis]:
-            if xvals == 'subsample':
-                info[axis]['values'] = info[axis]['values'][::n][:nPts]
-            elif xvals == 'downsample':
-                info[axis]['values'] = downsample(info[axis]['values'], n)
-        return MetaArray(d2, info=info)
+    info = ma.infoCopy()
+    if 'values' in info[axis]:
+        if xvals == 'subsample':
+            info[axis]['values'] = info[axis]['values'][::n][:nPts]
+        elif xvals == 'downsample':
+            info[axis]['values'] = downsample(info[axis]['values'], n)
+    return MetaArray(d2, info=info)
 
 
 def arrayToQPath(x, y, connect='all'):
@@ -1523,7 +1478,7 @@ def isocurve(data, level, connected=False, extendToEdge=False, path=False):
     
     if path is True:
         connected = True
-    
+
     if extendToEdge:
         d2 = np.empty((data.shape[0]+2, data.shape[1]+2), dtype=data.dtype)
         d2[1:-1, 1:-1] = data
@@ -1536,7 +1491,7 @@ def isocurve(data, level, connected=False, extendToEdge=False, path=False):
         d2[-1,0] = d2[-1,1]
         d2[-1,-1] = d2[-1,-2]
         data = d2
-    
+
     sideTable = [
         [],
         [0,1],
@@ -1555,20 +1510,20 @@ def isocurve(data, level, connected=False, extendToEdge=False, path=False):
         [0,1],
         []
         ]
-    
+
     edgeKey=[
         [(0,1), (0,0)],
         [(0,0), (1,0)],
         [(1,0), (1,1)],
         [(1,1), (0,1)]
         ]
-    
-    
+
+
     lines = []
-    
+
     ## mark everything below the isosurface level
     mask = data < level
-    
+
     ### make four sub-fields and compute indexes for grid cells
     index = np.zeros([x-1 for x in data.shape], dtype=np.ubyte)
     fields = np.empty((2,2), dtype=object)
@@ -1582,7 +1537,7 @@ def isocurve(data, level, connected=False, extendToEdge=False, path=False):
             np.add(index, fields[i,j] * 2**vertIndex, out=index, casting='unsafe')
             #print index
     #print index
-    
+
     ## add lines
     for i in range(index.shape[0]):                 # data x-axis
         for j in range(index.shape[1]):             # data y-axis     
@@ -1612,12 +1567,12 @@ def isocurve(data, level, connected=False, extendToEdge=False, path=False):
                         pts.append((p, gridKey))  ## give the actual position and a key identifying the grid location (for connecting segments)
                     else:
                         pts.append(p)
-                
+
                 lines.append(pts)
 
     if not connected:
         return lines
-                
+
     ## turn disjoint list of segments into continuous lines
 
     #lines = [[2,5], [5,4], [3,4], [1,3], [6,7], [7,8], [8,6], [11,12], [12,15], [11,13], [13,14]]
@@ -1644,7 +1599,7 @@ def isocurve(data, level, connected=False, extendToEdge=False, path=False):
             while True:
                 if x == chain[-1][1]:
                     break ## nothing left to do on this chain
-                    
+
                 x = chain[-1][1]
                 if x == k:  
                     break ## chain has looped; we're done and can ignore the opposite chain
@@ -1659,26 +1614,23 @@ def isocurve(data, level, connected=False, extendToEdge=False, path=False):
             if chain[0][1] == chain[-1][1]:  # looped chain; no need to continue the other direction
                 chains.pop()
                 break
-                
+
 
     ## extract point locations 
     lines = []
     for chain in points.values():
-        if len(chain) == 2:
-            chain = chain[1][1:][::-1] + chain[0]  # join together ends of chain
-        else:
-            chain = chain[0]
+        chain = chain[1][1:][::-1] + chain[0] if len(chain) == 2 else chain[0]
         lines.append([p[0] for p in chain])
-    
+
     if not path:
         return lines ## a list of pairs of points
-    
+
     path = QtGui.QPainterPath()
     for line in lines:
         path.moveTo(*line[0])
         for p in line[1:]:
             path.lineTo(*p)
-    
+
     return path
     
     

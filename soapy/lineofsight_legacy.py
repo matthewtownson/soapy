@@ -80,11 +80,7 @@ class LineOfSight(object):
         self.propagationDirection = propagationDirection
 
         # If GS not at infinity, find meta-pupil radii for each layer
-        if self.height!=0:
-            self.radii = self.findMetaPupilSizes(self.height)
-        else:
-            self.radii = None
-
+        self.radii = self.findMetaPupilSizes(self.height) if self.height!=0 else None
         self.allocDataArrays()
 
         # Can be set to use other values as metapupil position
@@ -181,12 +177,11 @@ class LineOfSight(object):
             dict : A dictionary containing the radii of a meta-pupil at each screen height in phase pixels
         '''
 
-        radii = {}
-        for i in xrange(self.atmosConfig.scrnNo):
-            radii[i] = self.calcMetaPupilSize(
-                        self.atmosConfig.scrnHeights[i], GSHeight) / self.phase_pixel_scale
-
-        return radii
+        return {
+            i: self.calcMetaPupilSize(self.atmosConfig.scrnHeights[i], GSHeight)
+            / self.phase_pixel_scale
+            for i in xrange(self.atmosConfig.scrnNo)
+        }
 
 
     def calcMetaPupilSize(self, scrnHeight, GSHeight):
@@ -209,11 +204,7 @@ class LineOfSight(object):
         if scrnHeight >= GSHeight:
             return 0
 
-        # Find radius of metaPupil geometrically (fraction of pupil at
-        # Ground Layer)
-        radius = (self.telescope_diameter/2.) * (1-(float(scrnHeight)/GSHeight))
-
-        return radius
+        return (self.telescope_diameter/2.) * (1-(float(scrnHeight)/GSHeight))
 
     #############################################################
     # Phase stacking routines for a WFS frame
@@ -235,10 +226,7 @@ class LineOfSight(object):
 
         pos *= ASEC2RAD
 
-        # Position of centre of GS metapupil off axis at required height
-        GSCent = (numpy.tan(pos) * height)
-
-        return GSCent
+        return (numpy.tan(pos) * height)
 
     def getMetaPupilPhase(
             self, scrn, height, radius=None,  apos=None, pos=None):
@@ -274,16 +262,12 @@ class LineOfSight(object):
         # And a corresponding coordinate on the phase screen
         self.phaseCoord = int(round(self.phaseRadius / self.phase_pixel_scale))
 
-        logger.debug('phaseCoord:{}'.format(self.phaseCoord))
+        logger.debug(f'phaseCoord:{self.phaseCoord}')
         # The sizes of the phase screen
         scrnX, scrnY = scrn.shape
 
         # If the GS is not at infinity, take into account cone effect
-        if radius != None:
-            fact = float(2*radius)/self.pupil_size
-        else:
-            fact = 1
-
+        fact = float(2*radius)/self.pupil_size if radius != None else 1
         simSize = self.simConfig.simSize
         x1 = scrnX/2. + GSCent[0] - fact * self.phaseCoord
         x2 = scrnX/2. + GSCent[0] + fact * self.phaseCoord
@@ -340,17 +324,9 @@ class LineOfSight(object):
         '''
 
         for i in range(len(self.scrns)):
-            logger.debug("Layer: {}".format(i))
-            if radii is None:
-                radius = None
-            else:
-                radius = radii[i]
-
-            if self.metaPupilPos is None:
-                pos = None
-            else:
-                pos = self.metaPupilPos[i]
-
+            logger.debug(f"Layer: {i}")
+            radius = None if radii is None else radii[i]
+            pos = None if self.metaPupilPos is None else self.metaPupilPos[i]
             phase = self.getMetaPupilPhase(
                     self.scrns[i], self.atmosConfig.scrnHeights[i],
                     pos=pos, radius=radius)
@@ -412,16 +388,8 @@ class LineOfSight(object):
         # Go through and propagate between phase screens
         for i in scrnRange:
             # Check optional radii and position
-            if radii is None:
-                radius = None
-            else:
-                radius = radii[i]
-
-            if self.metaPupilPos is None:
-                pos = None
-            else:
-                pos = self.metaPupilPos[i]
-
+            radius = None if radii is None else radii[i]
+            pos = None if self.metaPupilPos is None else self.metaPupilPos[i]
             # Get phase for this layer
             phase = self.getMetaPupilPhase(
                     self.scrns[i],
@@ -451,7 +419,7 @@ class LineOfSight(object):
                         self.EFieldBuf, self.wavelength,
                         self.out_pixel_scale, self.out_pixel_scale, z)
 
-            logger.debug("Propagation: {}, {} m. Total: {}".format(i, z, z_total))
+            logger.debug(f"Propagation: {i}, {z} m. Total: {z_total}")
 
             self.EField[:] = self.EFieldBuf
 
@@ -467,27 +435,23 @@ class LineOfSight(object):
         # If just an arary, put in list
         # if isinstance(correction, numpy.ndarray):
         #     correction = [correction]
-        
+
         for corr in correction:
             # If correction is a standard ndarray, assume at ground
-            if hasattr(corr, "altitude"):
-                altitude = corr.altitude
-            else:
-                altitude = 0
-                   
+            altitude = corr.altitude if hasattr(corr, "altitude") else 0
             # Cut out the bit of the correction we need
             metaPupilRadius = self.calcMetaPupilSize(
                         altitude, self.height) / self.phase_pixel_scale
             corr = self.getMetaPupilPhase(corr, altitude, radius=metaPupilRadius)
-            
+
             # Correct EField
             self.EField *= numpy.exp(-1j * corr * self.phs2Rad)
-            
+
             # self.phase -= corr * self.phs2Rad
-            
+
             # Also correct phase in case its required
             self.residual = self.phase/self.phs2Rad - corr
-           
+
             self.phase = self.residual * self.phs2Rad
 
     def frame(self, scrns=None, correction=None):

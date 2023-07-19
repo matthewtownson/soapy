@@ -45,10 +45,7 @@ class Bessel(CtrlNode):
     
     def processData(self, data):
         s = self.stateGroup.state()
-        if s['band'] == 'lowpass':
-            mode = 'low'
-        else:
-            mode = 'high'
+        mode = 'low' if s['band'] == 'lowpass' else 'high'
         return functions.besselFilter(data, bidir=s['bidir'], btype=mode, cutoff=s['cutoff'], order=s['order'])
 
 
@@ -66,12 +63,16 @@ class Butterworth(CtrlNode):
     
     def processData(self, data):
         s = self.stateGroup.state()
-        if s['band'] == 'lowpass':
-            mode = 'low'
-        else:
-            mode = 'high'
-        ret = functions.butterworthFilter(data, bidir=s['bidir'], btype=mode, wPass=s['wPass'], wStop=s['wStop'], gPass=s['gPass'], gStop=s['gStop'])
-        return ret
+        mode = 'low' if s['band'] == 'lowpass' else 'high'
+        return functions.butterworthFilter(
+            data,
+            bidir=s['bidir'],
+            btype=mode,
+            wPass=s['wPass'],
+            wStop=s['wStop'],
+            gPass=s['gPass'],
+            gStop=s['gStop'],
+        )
 
         
 class ButterworthNotch(CtrlNode):
@@ -172,13 +173,12 @@ class Derivative(CtrlNode):
     nodeName = 'DerivativeFilter'
     
     def processData(self, data):
-        if hasattr(data, 'implements') and data.implements('MetaArray'):
-            info = data.infoCopy()
-            if 'values' in info[0]:
-                info[0]['values'] = info[0]['values'][:-1]
-            return metaarray.MetaArray(data[1:] - data[:-1], info=info)
-        else:
+        if not hasattr(data, 'implements') or not data.implements('MetaArray'):
             return data[1:] - data[:-1]
+        info = data.infoCopy()
+        if 'values' in info[0]:
+            info[0]['values'] = info[0]['values'][:-1]
+        return metaarray.MetaArray(data[1:] - data[:-1], info=info)
 
 
 class Integral(CtrlNode):
@@ -311,19 +311,19 @@ class RemovePeriodic(CtrlNode):
     def processData(self, data):
         times = data.xvals('Time')
         dt = times[1]-times[0]
-        
+
         data1 = data.asarray()
         ft = np.fft.fft(data1)
-        
+
         ## determine frequencies in fft data
         df = 1.0 / (len(data1) * dt)
         freqs = np.linspace(0.0, (len(ft)-1) * df, len(ft))
-        
+
         ## flatten spikes at f0 and harmonics
         f0 = self.ctrls['f0'].value()
         for i in xrange(1, self.ctrls['harmonics'].value()+2):
             f = f0 * i # target frequency
-            
+
             ## determine index range to check for this frequency
             ind1 = int(np.floor(f / df))
             ind2 = int(np.ceil(f / df)) + (self.ctrls['samples'].value()-1)
@@ -336,11 +336,10 @@ class RemovePeriodic(CtrlNode):
                 im = mag * np.sin(phase)
                 ft[j] = re + im*1j
                 ft[len(ft)-j] = re - im*1j
-                
+
         data2 = np.fft.ifft(ft).real
-        
-        ma = metaarray.MetaArray(data2, info=data.infoCopy())
-        return ma
+
+        return metaarray.MetaArray(data2, info=data.infoCopy())
         
         
         

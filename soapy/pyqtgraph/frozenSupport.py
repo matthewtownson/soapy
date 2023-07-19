@@ -24,17 +24,14 @@ def isdir(path):
     """Replacement for os.path.isdir that works in frozen environments."""
     if not hasattr(sys, 'frozen'):
         return os.path.isdir(path)
-    
+
     (zipPath, archivePath) = splitZip(path)
     if archivePath is None:
         return os.path.isdir(path)
     with zipfile.ZipFile(zipPath, "r") as zipobj:
         contents = zipobj.namelist()
     archivePath = archivePath.rstrip('/') + '/'   ## make sure there's exactly one '/' at the end
-    for c in contents:
-        if c.startswith(archivePath):
-            return True
-    return False
+    return any(c.startswith(archivePath) for c in contents)
     
     
 def splitZip(path):
@@ -43,8 +40,8 @@ def splitZip(path):
     components = os.path.normpath(path).split(os.sep)
     for index, component in enumerate(components):
         if component.endswith('.zip'):
-            zipPath = os.sep.join(components[0:index+1])
-            archivePath = ''.join([x+'/' for x in components[index+1:]])
+            zipPath = os.sep.join(components[:index+1])
+            archivePath = ''.join([f'{x}/' for x in components[index+1:]])
             return (zipPath, archivePath)
     else:
         return (path, None)

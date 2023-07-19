@@ -142,7 +142,7 @@ class GraphicsLayout(GraphicsWidget):
         for i in range(self.layout.count()):
             if self.layout.itemAt(i).graphicsItem() is item:
                 return i
-        raise Exception("Could not determine index of item " + str(item))
+        raise Exception(f"Could not determine index of item {str(item)}")
     
     def removeItem(self, item):
         """Remove *item* from the layout."""

@@ -9,11 +9,7 @@ from .Qt import QtCore
 import numpy as np
 
 def clip(x, mn, mx):
-    if x > mx:
-        return mx
-    if x < mn:
-        return mn
-    return x
+    return mx if x > mx else max(x, mn)
 
 class Point(QtCore.QPointF):
     """Extension of QPointF which adds a few missing methods."""
@@ -23,7 +19,7 @@ class Point(QtCore.QPointF):
             if isinstance(args[0], QtCore.QSizeF):
                 QtCore.QPointF.__init__(self, float(args[0].width()), float(args[0].height()))
                 return
-            elif isinstance(args[0], float) or isinstance(args[0], int):
+            elif isinstance(args[0], (float, int)):
                 QtCore.QPointF.__init__(self, float(args[0]), float(args[0]))
                 return
             elif hasattr(args[0], '__getitem__'):
@@ -46,7 +42,7 @@ class Point(QtCore.QPointF):
         elif i == 1:
             return self.y()
         else:
-            raise IndexError("Point has no index %s" % str(i))
+            raise IndexError(f"Point has no index {str(i)}")
         
     def __setitem__(self, i, x):
         if i == 0:
@@ -54,7 +50,7 @@ class Point(QtCore.QPointF):
         elif i == 1:
             return self.setY(x)
         else:
-            raise IndexError("Point has no index %s" % str(i))
+            raise IndexError(f"Point has no index {str(i)}")
         
     def __radd__(self, a):
         return self._math_('__radd__', a)

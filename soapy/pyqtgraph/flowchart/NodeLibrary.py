@@ -36,12 +36,12 @@ class NodeLibrary:
         ============== =========================================================
         """
         if not isNodeClass(nodeClass):
-            raise Exception("Object %s is not a Node subclass" % str(nodeClass))
-        
+            raise Exception(f"Object {str(nodeClass)} is not a Node subclass")
+
         name = nodeClass.nodeName
         if not override and name in self.nodeList:
-            raise Exception("Node type name '%s' is already registered." % name)
-        
+            raise Exception(f"Node type name '{name}' is already registered.")
+
         self.nodeList[name] = nodeClass
         for path in paths:
             root = self.nodeTree
@@ -55,7 +55,7 @@ class NodeLibrary:
         try:
             return self.nodeList[name]
         except KeyError:
-            raise Exception("No node type called '%s'" % name)
+            raise Exception(f"No node type called '{name}'")
 
     def getNodeTree(self):
         return self.nodeTree
@@ -73,10 +73,7 @@ class NodeLibrary:
     def treeCopy(tree):
         copy = OrderedDict()
         for k,v in tree.items():
-            if isNodeClass(v):
-                copy[k] = v
-            else:
-                copy[k] = NodeLibrary.treeCopy(v)
+            copy[k] = v if isNodeClass(v) else NodeLibrary.treeCopy(v)
         return copy
 
     def reload(self):

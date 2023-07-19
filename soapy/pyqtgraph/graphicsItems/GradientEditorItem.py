@@ -137,8 +137,10 @@ class TickSliderItem(GraphicsWidget):
             transform.translate(-self.height(), 0)
             self.setTransform(transform)
         elif ort != 'bottom':
-            raise Exception("%s is not a valid orientation. Options are 'left', 'right', 'top', and 'bottom'" %str(ort))
-        
+            raise Exception(
+                f"{str(ort)} is not a valid orientation. Options are 'left', 'right', 'top', and 'bottom'"
+            )
+
         self.translate(self.tickSize/2., 0)
     
     def addTick(self, x, color=None, movable=True):
@@ -188,10 +190,7 @@ class TickSliderItem(GraphicsWidget):
             self.removeTick(tick)
     
     def widgetLength(self):
-        if self.orientation in ['bottom', 'top']:
-            return self.width()
-        else:
-            return self.height()
+        return self.width() if self.orientation in ['bottom', 'top'] else self.height()
     
     def resizeEvent(self, ev):
         wlen = max(40, self.widgetLength())
@@ -494,8 +493,8 @@ class GradientEditorItem(TickSliderItem):
         
         ## public
         if cm not in ['rgb', 'hsv']:
-            raise Exception("Unknown color mode %s. Options are 'rgb' and 'hsv'." % str(cm))
-        
+            raise Exception(f"Unknown color mode {str(cm)}. Options are 'rgb' and 'hsv'.")
+
         try:
             self.rgbAction.blockSignals(True)
             self.hsvAction.blockSignals(True)
@@ -582,8 +581,7 @@ class GradientEditorItem(TickSliderItem):
             g.setStops([(x, QtGui.QColor(t.color)) for t,x in ticks])
         elif self.colorMode == 'hsv':  ## HSV mode is approximated for display by interpolating 10 points between each stop
             ticks = self.listTicks()
-            stops = []
-            stops.append((ticks[0][1], ticks[0][0].color))
+            stops = [(ticks[0][1], ticks[0][0].color)]
             for i in range(1,len(ticks)):
                 x1 = ticks[i-1][1]
                 x2 = ticks[i][1]
@@ -618,19 +616,16 @@ class GradientEditorItem(TickSliderItem):
                 return QtGui.QColor(c)  # always copy colors before handing them out
             else:
                 return (c.red(), c.green(), c.blue(), c.alpha())
-            
+
         x2 = ticks[0][1]
         for i in range(1,len(ticks)):
             x1 = x2
             x2 = ticks[i][1]
             if x1 <= x and x2 >= x:
                 break
-                
+
         dx = (x2-x1)
-        if dx == 0:
-            f = 0.
-        else:
-            f = (x-x1) / dx
+        f = 0. if dx == 0 else (x-x1) / dx
         c1 = ticks[i-1][0].color
         c2 = ticks[i][0].color
         if self.colorMode == 'rgb':
@@ -650,10 +645,7 @@ class GradientEditorItem(TickSliderItem):
             v = v1 * (1.-f) + v2 * f
             c = QtGui.QColor()
             c.setHsv(h,s,v)
-            if toQColor:
-                return c
-            else:
-                return (c.red(), c.green(), c.blue(), c.alpha())
+            return c if toQColor else (c.red(), c.green(), c.blue(), c.alpha())
                     
     def getLookupTable(self, nPts, alpha=None):
         """
@@ -684,11 +676,7 @@ class GradientEditorItem(TickSliderItem):
         """Return True if any ticks have an alpha < 255"""
         
         ticks = self.listTicks()
-        for t in ticks:
-            if t[0].color.alpha() < 255:
-                return True
-            
-        return False
+        return any(t[0].color.alpha() < 255 for t in ticks)
             
     def isLookupTrivial(self):
         """Return True if the gradient has exactly two stops in it: black at 0.0 and white at 1.0"""
@@ -699,9 +687,7 @@ class GradientEditorItem(TickSliderItem):
             return False
         c1 = fn.colorTuple(ticks[0][0].color)
         c2 = fn.colorTuple(ticks[1][0].color)
-        if c1 != (0,0,0,255) or c2 != (255,255,255,255):
-            return False
-        return True
+        return c1 == (0,0,0,255) and c2 == (255,255,255,255)
 
 
     def mouseReleaseEvent(self, ev):
@@ -753,8 +739,7 @@ class GradientEditorItem(TickSliderItem):
         for t in self.ticks:
             c = t.color
             ticks.append((self.ticks[t], (c.red(), c.green(), c.blue(), c.alpha())))
-        state = {'mode': self.colorMode, 'ticks': ticks}
-        return state
+        return {'mode': self.colorMode, 'ticks': ticks}
         
     def restoreState(self, state):
         """

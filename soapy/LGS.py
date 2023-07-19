@@ -272,8 +272,4 @@ def lgsOALaunchMetaPupilPos(gsPos, launchPos, lgsHt, layerHt):
 
     gsPos_rad = numpy.array(gsPos)/RAD2ASEC
     launchPos = numpy.array(launchPos)
-    # Equation worked out painstakingly with vast number of triangles...
-    # (please try out and verify!)
-    pos = launchPos + layerHt * gsPos_rad - (layerHt * launchPos / lgsHt)
-
-    return pos
+    return launchPos + layerHt * gsPos_rad - (layerHt * launchPos / lgsHt)

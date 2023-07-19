@@ -13,15 +13,15 @@ def downsample(data, n, axis=0, xvals='subsample'):
     if (hasattr(data, 'implements') and data.implements('MetaArray')):
         ma = data
         data = data.view(np.ndarray)
-        
-    
+
+
     if hasattr(axis, '__len__'):
         if not hasattr(n, '__len__'):
             n = [n]*len(axis)
         for i in range(len(axis)):
             data = downsample(data, n[i], axis[i])
         return data
-    
+
     nPts = int(data.shape[axis] / n)
     s = list(data.shape)
     s[axis] = nPts
@@ -32,17 +32,16 @@ def downsample(data, n, axis=0, xvals='subsample'):
     #print d1.shape, s
     d1.shape = tuple(s)
     d2 = d1.mean(axis+1)
-    
+
     if ma is None:
         return d2
-    else:
-        info = ma.infoCopy()
-        if 'values' in info[axis]:
-            if xvals == 'subsample':
-                info[axis]['values'] = info[axis]['values'][::n][:nPts]
-            elif xvals == 'downsample':
-                info[axis]['values'] = downsample(info[axis]['values'], n)
-        return MetaArray(d2, info=info)
+    info = ma.infoCopy()
+    if 'values' in info[axis]:
+        if xvals == 'subsample':
+            info[axis]['values'] = info[axis]['values'][::n][:nPts]
+        elif xvals == 'downsample':
+            info[axis]['values'] = downsample(info[axis]['values'], n)
+    return MetaArray(d2, info=info)
 
 
 def applyFilter(data, b, a, padding=100, bidir=True):
@@ -130,12 +129,10 @@ def mode(data, bins=None):
     """Returns location max value from histogram."""
     if bins is None:
         bins = int(len(data)/10.)
-        if bins < 2:
-            bins = 2
+        bins = max(bins, 2)
     y, x = np.histogram(data, bins=bins)
     ind = np.argmax(y)
-    mode = 0.5 * (x[ind] + x[ind+1])
-    return mode
+    return 0.5 * (x[ind] + x[ind+1])
     
 def modeFilter(data, window=500, step=None, bins=None):
     """Filter based on histogram-based mode function"""
@@ -150,14 +147,15 @@ def modeFilter(data, window=500, step=None, bins=None):
             break
         vals.append(mode(d1[i:i+window], bins))
         i += step
-            
+
     chunks = [np.linspace(vals[0], vals[0], l2)]
-    for i in range(len(vals)-1):
-        chunks.append(np.linspace(vals[i], vals[i+1], step))
+    chunks.extend(
+        np.linspace(vals[i], vals[i + 1], step) for i in range(len(vals) - 1)
+    )
     remain = len(data) - step*(len(vals)-1) - l2
     chunks.append(np.linspace(vals[-1], vals[-1], remain))
     d2 = np.hstack(chunks)
-    
+
     if (hasattr(data, 'implements') and data.implements('MetaArray')):
         return MetaArray(d2, info=data.infoCopy())
     return d2
@@ -265,17 +263,17 @@ def concatenateColumns(data):
             if type is None:
                 type = suggestDType(d)
             dtype.append((name, type))
-            if isinstance(d, list) or isinstance(d, np.ndarray):
+            if isinstance(d, (list, np.ndarray)):
                 maxLen = max(maxLen, len(d))
         if name in names:
-            raise Exception('Name "%s" repeated' % name)
+            raise Exception(f'Name "{name}" repeated')
         names.add(name)
-            
-            
-    
+
+
+
     ## create empty array
     out = np.empty(maxLen, dtype)
-    
+
     ## fill columns
     for element in data:
         if isinstance(element, np.ndarray):
@@ -291,16 +289,16 @@ def concatenateColumns(data):
         else:
             name, type, d = element
             out[name] = d
-            
+
     return out
     
 def suggestDType(x):
     """Return a suitable dtype for x"""
-    if isinstance(x, list) or isinstance(x, tuple):
+    if isinstance(x, (list, tuple)):
         if len(x) == 0:
             raise Exception('can not determine dtype for empty list')
         x = x[0]
-        
+
     if hasattr(x, 'dtype'):
         return x.dtype
     elif isinstance(x, float):

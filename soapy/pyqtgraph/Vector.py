@@ -16,7 +16,7 @@ class Vector(QtGui.QVector3D):
             if isinstance(args[0], QtCore.QSizeF):
                 QtGui.QVector3D.__init__(self, float(args[0].width()), float(args[0].height()), 0)
                 return
-            elif isinstance(args[0], QtCore.QPoint) or isinstance(args[0], QtCore.QPointF):
+            elif isinstance(args[0], (QtCore.QPoint, QtCore.QPointF)):
                 QtGui.QVector3D.__init__(self, float(args[0].x()), float(args[0].y()), 0)
             elif hasattr(args[0], '__getitem__'):
                 vals = list(args[0])
@@ -51,7 +51,7 @@ class Vector(QtGui.QVector3D):
         elif i == 2:
             return self.z()
         else:
-            raise IndexError("Point has no index %s" % str(i))
+            raise IndexError(f"Point has no index {str(i)}")
         
     def __setitem__(self, i, x):
         if i == 0:
@@ -61,7 +61,7 @@ class Vector(QtGui.QVector3D):
         elif i == 2:
             return self.setZ(x)
         else:
-            raise IndexError("Point has no index %s" % str(i))
+            raise IndexError(f"Point has no index {str(i)}")
         
     def __iter__(self):
         yield(self.x())

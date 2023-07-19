@@ -25,20 +25,18 @@ class ArrowItem(QtGui.QGraphicsPathItem):
             opts['headWidth'] = opts['width']
         defaultOpts = {
             'pxMode': True,
-            'angle': -150,   ## If the angle is 0, the arrow points left
-            'pos': (0,0),
+            'angle': -150,  ## If the angle is 0, the arrow points left
+            'pos': (0, 0),
             'headLen': 20,
             'tipAngle': 25,
             'baseAngle': 0,
             'tailLen': None,
             'tailWidth': 3,
-            'pen': (200,200,200),
-            'brush': (50,50,200),
-        }
-        defaultOpts.update(opts)
-        
+            'pen': (200, 200, 200),
+            'brush': (50, 50, 200),
+        } | opts
         self.setStyle(**defaultOpts)
-        
+
         self.rotate(self.opts['angle'])
         self.moveBy(*self.opts['pos'])
     
@@ -99,18 +97,16 @@ class ArrowItem(QtGui.QGraphicsPathItem):
     ## dataBounds and pixelPadding methods are provided to ensure ViewBox can
     ## properly auto-range 
     def dataBounds(self, ax, frac, orthoRange=None):
-        pw = 0
         pen = self.pen()
-        if not pen.isCosmetic():
-            pw = pen.width() * 0.7072
+        pw = pen.width() * 0.7072 if not pen.isCosmetic() else 0
         if self.opts['pxMode']:
             return [0,0]
-        else:
-            br = self.boundingRect()
-            if ax == 0:
-                return [br.left()-pw, br.right()+pw]
-            else:
-                return [br.top()-pw, br.bottom()+pw]
+        br = self.boundingRect()
+        return (
+            [br.left() - pw, br.right() + pw]
+            if ax == 0
+            else [br.top() - pw, br.bottom() + pw]
+        )
         
     def pixelPadding(self):
         pad = 0

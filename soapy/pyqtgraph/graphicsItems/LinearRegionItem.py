@@ -147,10 +147,7 @@ class LinearRegionItem(UIGraphicsItem):
         p.drawRect(self.boundingRect())
 
     def dataBounds(self, axis, frac=1.0, orthoRange=None):
-        if axis == self.orientation:
-            return self.getRegion()
-        else:
-            return None
+        return self.getRegion() if axis == self.orientation else None
 
     def lineMoved(self):
         if self.blockLineSignal:

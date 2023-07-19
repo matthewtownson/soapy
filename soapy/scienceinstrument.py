@@ -92,11 +92,7 @@ class PSFCamera(object):
 
         # If propagation direction is up, need to consider a mask in the optical propagation
         # Otherwise, we'll apply it later
-        if self.config.propagationDir == "up":
-            los_mask = self.mask
-        else:
-            los_mask = None
-
+        los_mask = self.mask if self.config.propagationDir == "up" else None
         self.los = lineofsight.LineOfSight(
                 self.config, self.soapy_config,
                 propagation_direction=self.config.propagationDir, mask=los_mask)
@@ -110,7 +106,7 @@ class PSFCamera(object):
                     out_pixel_scale=out_pixel_scale,
                     nx_out_pixels=self.padFOVPxlNo
             )
-        
+
         # Cut out the mask just around the telescope aperture
         simpad = self.simConfig.simPad
         mask_pupil = self.mask[simpad: -simpad, simpad: -simpad]
@@ -124,7 +120,7 @@ class PSFCamera(object):
             while self.FFTPadding < self.FOVPxlNo:
                 self.config.fftOversamp += 1
                 self.FFTPadding\
-                    = self.nx_pixels * self.config.fftOversamp
+                        = self.nx_pixels * self.config.fftOversamp
             logger.info(
                 "SCI FFT Padding less than FOV size... Setting oversampling to %d" % self.config.fftOversamp)
 
@@ -286,9 +282,7 @@ class PSFCamera(object):
         res -= (piston*self.mask)
 
         ms_wfe = numpy.square(res).sum() / self.mask.sum()
-        rms_wfe = numpy.sqrt(ms_wfe)
-
-        return rms_wfe
+        return numpy.sqrt(ms_wfe)
 
 
     def frame(self, scrns, correction=None):

@@ -56,14 +56,14 @@ class ErrorBarItem(GraphicsObject):
         
     def drawPath(self):
         p = QtGui.QPainterPath()
-        
+
         x, y = self.opts['x'], self.opts['y']
         if x is None or y is None:
             return
-        
+
         beam = self.opts['beam']
-        
-        
+
+
         height, top, bottom = self.opts['height'], self.opts['top'], self.opts['bottom']
         if height is not None or top is not None or bottom is not None:
             ## draw vertical error bars
@@ -71,19 +71,12 @@ class ErrorBarItem(GraphicsObject):
                 y1 = y - height/2.
                 y2 = y + height/2.
             else:
-                if bottom is None:
-                    y1 = y
-                else:
-                    y1 = y - bottom
-                if top is None:
-                    y2 = y
-                else:
-                    y2 = y + top
-            
+                y1 = y if bottom is None else y - bottom
+                y2 = y if top is None else y + top
             for i in range(len(x)):
                 p.moveTo(x[i], y1[i])
                 p.lineTo(x[i], y2[i])
-                
+
             if beam is not None and beam > 0:
                 x1 = x - beam/2.
                 x2 = x + beam/2.
@@ -95,7 +88,7 @@ class ErrorBarItem(GraphicsObject):
                     for i in range(len(x)):
                         p.moveTo(x1[i], y1[i])
                         p.lineTo(x2[i], y1[i])
-        
+
         width, right, left = self.opts['width'], self.opts['right'], self.opts['left']
         if width is not None or right is not None or left is not None:
             ## draw vertical error bars
@@ -103,19 +96,12 @@ class ErrorBarItem(GraphicsObject):
                 x1 = x - width/2.
                 x2 = x + width/2.
             else:
-                if left is None:
-                    x1 = x
-                else:
-                    x1 = x - left
-                if right is None:
-                    x2 = x
-                else:
-                    x2 = x + right
-            
+                x1 = x if left is None else x - left
+                x2 = x if right is None else x + right
             for i in range(len(x)):
                 p.moveTo(x1[i], y[i])
                 p.lineTo(x2[i], y[i])
-                
+
             if beam is not None and beam > 0:
                 y1 = y - beam/2.
                 y2 = y + beam/2.
@@ -127,7 +113,7 @@ class ErrorBarItem(GraphicsObject):
                     for i in range(len(x)):
                         p.moveTo(x1[i], y1[i])
                         p.lineTo(x1[i], y2[i])
-                    
+
         self.path = p
         self.prepareGeometryChange()
         

@@ -40,9 +40,8 @@ class ParseError(Exception):
 
 def writeConfigFile(data, fname):
     s = genString(data)
-    fd = open(fname, 'w')
-    fd.write(s)
-    fd.close()
+    with open(fname, 'w') as fd:
+        fd.write(s)
     
 def readConfigFile(fname):
     #cwd = os.getcwd()
@@ -53,12 +52,10 @@ def readConfigFile(fname):
             fname = fname2
 
     GLOBAL_PATH = os.path.dirname(os.path.abspath(fname))
-        
+
     try:
-        #os.chdir(newDir)  ## bad.
-        fd = open(fname)
-        s = asUnicode(fd.read())
-        fd.close()
+        with open(fname) as fd:
+            s = asUnicode(fd.read())
         s = s.replace("\r\n", "\n")
         s = s.replace("\r", "\n")
         data = parseString(s)[1]
@@ -66,32 +63,31 @@ def readConfigFile(fname):
         sys.exc_info()[1].fileName = fname
         raise
     except:
-        print("Error while reading config file %s:"% fname)
+        print(f"Error while reading config file {fname}:")
         raise
-    #finally:
-        #os.chdir(cwd)
     return data
 
 def appendConfigFile(data, fname):
     s = genString(data)
-    fd = open(fname, 'a')
-    fd.write(s)
-    fd.close()
+    with open(fname, 'a') as fd:
+        fd.write(s)
 
 
 def genString(data, indent=''):
     s = ''
     for k in data:
         sk = str(k)
-        if len(sk) == 0:
+        if not sk:
             print(data)
             raise Exception('blank dict keys not allowed (see data above)')
         if sk[0] == ' ' or ':' in sk:
             print(data)
-            raise Exception('dict keys must not contain ":" or start with spaces [offending key is "%s"]' % sk)
+            raise Exception(
+                f'dict keys must not contain ":" or start with spaces [offending key is "{sk}"]'
+            )
         if isinstance(data[k], dict):
             s += indent + sk + ':\n'
-            s += genString(data[k], indent + '    ')
+            s += genString(data[k], f'{indent}    ')
         else:
             s += indent + sk + ': ' + repr(data[k]) + '\n'
     return s
@@ -102,23 +98,23 @@ def parseString(lines, start=0):
     if isinstance(lines, basestring):
         lines = lines.split('\n')
         lines = [l for l in lines if re.search(r'\S', l) and not re.match(r'\s*#', l)]  ## remove empty lines
-        
+
     indent = measureIndent(lines[start])
     ln = start - 1
-    
+
     try:
         while True:
             ln += 1
             #print ln
             if ln >= len(lines):
                 break
-            
+
             l = lines[ln]
-            
+
             ## Skip blank lines or lines starting with #
             if re.match(r'\s*#', l) or not re.search(r'\S', l):
                 continue
-            
+
             ## Measure line indentation, make sure it is correct for this level
             lineInd = measureIndent(l)
             if lineInd < indent:
@@ -127,15 +123,15 @@ def parseString(lines, start=0):
             if lineInd > indent:
                 #print lineInd, indent
                 raise ParseError('Indentation is incorrect. Expected %d, got %d' % (indent, lineInd), ln+1, l)
-            
-            
+
+
             if ':' not in l:
                 raise ParseError('Missing colon', ln+1, l)
-            
+
             (k, p, v) = l.partition(':')
             k = k.strip()
             v = v.strip()
-            
+
             ## set up local variables to use for eval
             local = units.allUnits.copy()
             local['OrderedDict'] = OrderedDict
@@ -150,7 +146,7 @@ def parseString(lines, start=0):
                           'int32', 'uint32', 'float32',
                           'int64', 'uint64', 'float64']:
                 local[dtype] = getattr(numpy, dtype)
-                
+
             if len(k) < 1:
                 raise ParseError('Missing name preceding colon', ln+1, l)
             if k[0] == '(' and k[-1] == ')':  ## If the key looks like a tuple, try evaluating it.
@@ -165,21 +161,24 @@ def parseString(lines, start=0):
                     val = eval(v, local)
                 except:
                     ex = sys.exc_info()[1]
-                    raise ParseError("Error evaluating expression '%s': [%s: %s]" % (v, ex.__class__.__name__, str(ex)), (ln+1), l)
+                    raise ParseError(
+                        f"Error evaluating expression '{v}': [{ex.__class__.__name__}: {str(ex)}]",
+                        ln + 1,
+                        l,
+                    )
+            elif ln+1 >= len(lines) or measureIndent(lines[ln+1]) <= indent:
+                #print "blank dict"
+                val = {}
             else:
-                if ln+1 >= len(lines) or measureIndent(lines[ln+1]) <= indent:
-                    #print "blank dict"
-                    val = {}
-                else:
-                    #print "Going deeper..", ln+1
-                    (ln, val) = parseString(lines, start=ln+1)
+                #print "Going deeper..", ln+1
+                (ln, val) = parseString(lines, start=ln+1)
             data[k] = val
-        #print k, repr(val)
+            #print k, repr(val)
     except ParseError:
         raise
     except:
         ex = sys.exc_info()[1]
-        raise ParseError("%s: %s" % (ex.__class__.__name__, str(ex)), ln+1, l)
+        raise ParseError(f"{ex.__class__.__name__}: {str(ex)}", ln+1, l)
     #print "Returning shallower..", ln+1
     return (ln, data)
     
@@ -194,8 +193,8 @@ def measureIndent(s):
 if __name__ == '__main__':
     import tempfile
     fn = tempfile.mktemp()
-    tf = open(fn, 'w')
-    cf = """
+    with open(fn, 'w') as tf:
+        cf = """
 key: 'value'
 key2:              ##comment
                    ##comment
@@ -204,13 +203,10 @@ key2:              ##comment
     key22: [1,2,3]
     key23: 234  #comment
     """
-    tf.write(cf)
-    tf.close()
+        tf.write(cf)
     print("=== Test:===")
-    num = 1
-    for line in cf.split('\n'):
+    for num, line in enumerate(cf.split('\n'), start=1):
         print("%02d   %s" % (num, line))
-        num += 1
     print(cf)
     print("============")
     data = readConfigFile(fn)
