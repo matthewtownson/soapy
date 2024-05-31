@@ -3,9 +3,10 @@ pupilSize: 100
 nGS: 1
 nDM: 2
 nSci: 1
-nIters: 5000
-loopTime: 0.0025
+nIters: 2000
+loopTime: 0.002
 threads: 4
+simOversize: 2.50
 
 verbosity: 2
 
@@ -42,7 +43,7 @@ WFS:
     nxSubaps: 8
     pxlsPerSubap: 10
     subapFOV: 2.5
-    wavelength: 600e-9
+    wavelength: 500e-9
 
 DM:
   0:
@@ -67,5 +68,5 @@ Science:
     position: [0, 0]
     FOV: 1.0
     wavelength: 1.65e-6
-    pxls: 64
+    pxls: 128
 

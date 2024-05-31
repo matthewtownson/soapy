@@ -3,13 +3,13 @@ pupilSize: 100
 nGS: 1
 nDM: 1
 nSci: 1
-nIters: 500
+nIters: 2000
 loopTime: 0.002
 threads: 4
 simOversize: 2.50
 
 
-verbosity: 0
+verbosity: 2
 
 saveCMat: False
 saveSlopes: False
@@ -23,20 +23,21 @@ saveCalic : False
 saveWfsFrames: False
 
 Atmosphere:
-  scrnNo: 1
+  scrnNo: 4
   scrnHeights: [0, 5000, 10000, 15000]
   scrnStrengths: [0.5, 0.3, 0.1, 0.1]
   windDirs: [0, 45, 90, 135]
-  windSpeeds: [10, 10, 10, 20]
-  wholeScrnSize: 1024
-  r0: 0.12
+  windSpeeds: [10, 10, 15, 20]
+  wholeScrnSize: 2048
+  r0: 0.16
   L0: [20, 20, 20, 20]
   infinite: True
 
 
 
 Telescope:
-  telDiam: 4
+  telDiam: 8.
+  obsDiam: 1.1
   mask: circle
   
   
@@ -74,7 +75,7 @@ Reconstructor:
 Science:
   0:
     position: [0, 0]
-    FOV: .5
+    FOV: 1.0
     wavelength: 1.65e-6
-    pxls: 100
+    pxls: 128
 
